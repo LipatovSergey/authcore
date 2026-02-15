@@ -17,16 +17,20 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:e2e": "DOTENV_CONFIG_PATH=.env.test jest --config ./test/jest-e2e.json --runInBand",
     "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
     "typeorm:dev": "DOTENV_CONFIG_PATH=.env.development pnpm typeorm",
-    "typeorm:prod": "DOTENV_CONFIG_PATH=.env.production pnpm typeorm",
     "migration:show:dev": "pnpm typeorm:dev migration:show",
     "migration:run:dev": "pnpm typeorm:dev migration:run",
     "migration:revert:dev": "pnpm typeorm:dev migration:revert",
+    "typeorm:prod": "DOTENV_CONFIG_PATH=.env.production pnpm typeorm",
     "migration:show:prod": "pnpm typeorm:prod migration:show",
     "migration:run:prod": "pnpm typeorm:prod migration:run",
-    "migration:revert:prod": "pnpm typeorm:prod migration:revert"
+    "migration:revert:prod": "pnpm typeorm:prod migration:revert",
+    "typeorm:test": "DOTENV_CONFIG_PATH=.env.test pnpm typeorm",
+    "migration:show:test": "pnpm typeorm:test migration:show",
+    "migration:run:test": "pnpm typeorm:test migration:run",
+    "migration:revert:test": "pnpm typeorm:test migration:revert"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
