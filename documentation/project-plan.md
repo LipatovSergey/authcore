@@ -149,23 +149,35 @@ DELETE /auth/sessions/:id       (v2.0.0)
 - **Access token:** JWT, 15 минут, HS256
 - **Refresh token:** JWT, 7 дней, хранится в БД
 - **Передача:** Access в `Authorization: Bearer`, Refresh в request body
+- **Фиксированная модель auth для проекта:** только JWT + Refresh (cookie-session ветка не используется в текущем плане)
 
 **Password hashing:**
 
-- Bcrypt с 10+ rounds
+- Argon2id (параметры через env)
 - Никогда не логировать пароли
+
+**Как используем Argon2id в проекте:**
+
+- Используем пакет `argon2` (npm) как текущую стабильную реализацию
+- В MVP поддерживается только Argon2id (fallback на bcrypt не используется)
+- Хеширование идёт только через абстракцию `PasswordHasher` (не вызывать `argon2` напрямую по коду)
+- Контракт `PasswordHasher`: `hash(password)`, `verify(password, storedHash)`, `needsRehash(storedHash)`
+- Храним стандартный encoded hash (`$argon2id$...`) с параметрами внутри строки
+- Миграция на встроенный Node Argon2 (когда станет stable/LTS) планируется через замену реализации в одном месте + rehash-on-login, без миграции БД и без сброса паролей
 
 **Validation:**
 
 - class-validator для DTOs
 - Email формат проверка
-- Минимум 8 символов для пароля
+- Минимум 12 символов для пароля
+- Максимум 128+ символов
+- Не применять trim к паролю (пробелы разрешены)
 
 **Безопасность (что добавится позже):**
 
 - HTTP-only cookies для refresh (v2.0.0)
 - CSRF protection (v2.0.0)
-- Rate limiting (v2.0.0)
+- Расширенный rate limiting (v2.0.0)
 - Email verification (v1.1.0)
 - RS256 для JWT (v2.1.0)
 
@@ -233,6 +245,14 @@ services:
 - Локально: `npm run start:dev` (hot reload)
 - Production: Docker контейнер
 
+**Argon2 установка и деплой:**
+
+- `argon2` является нативным модулем Node.js (использует prebuilt binaries на популярных платформах)
+- Основной путь для OSS-пользователей: Docker-first
+- Базовый production/dev образ: `node:<LTS>-slim` (Debian/Ubuntu)
+- Если prebuilt binary недоступен, возможна сборка из исходников (node-gyp + toolchain)
+- В README обязателен раздел Troubleshooting для установки `argon2`
+
 **Environment Variables:**
 
 ```bash
@@ -252,6 +272,11 @@ JWT_ACCESS_SECRET=your-secret-key
 JWT_REFRESH_SECRET=another-secret-key
 JWT_ACCESS_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
+
+# Argon2id
+ARGON2_MEMORY_COST=19456
+ARGON2_TIME_COST=2
+ARGON2_PARALLELISM=1
 
 # App
 PORT=3000
@@ -337,6 +362,7 @@ NODE_ENV=development
 - Environment variables
 - Testing
 - Architecture overview
+- Troubleshooting (включая установку `argon2`)
 - License
 
 **.env.example:**
@@ -431,9 +457,11 @@ chore: update dependencies
 
 - [ ] Users module (entity, service)
 - [ ] Registration endpoint + DTO
-- [ ] Password hashing (bcrypt)
+- [ ] Password hashing (Argon2id)
+- [ ] Password policy (min 12, no trim, spaces allowed)
 - [ ] JWT генерация (access + refresh)
 - [ ] Login endpoint
+- [ ] Базовый rate limiting на login/register
 - [ ] Базовый error handling
 
 **Неделя 3: Токены и Guards**
@@ -517,8 +545,12 @@ chore: update dependencies
   - Secure flag для production
 - [ ] Rate limiting
   - На login (защита от brute force)
-  - На registration (защита от спама)
+  - На registration/reset (защита от спама)
   - Redis для хранения счётчиков
+- [ ] Observability и аудит
+  - Correlation/request ID
+  - Audit events (login success/fail, reset requested/used, password changed, refresh rotated/revoked)
+  - Базовые security-метрики
 - [ ] Улучшенная безопасность
   - Helmet.js
   - CORS configuration
@@ -543,10 +575,6 @@ chore: update dependencies
   - `role` enum в users (user, admin)
   - Role-based guards
   - Admin endpoints (GET /users, DELETE /users/:id)
-- [ ] Audit logs
-  - Таблица `audit_logs`
-  - Логирование всех auth событий
-  - Queryable history
 - [ ] RS256 для JWT
   - Private/Public key pair
   - Безопаснее для микросервисов
@@ -555,6 +583,8 @@ chore: update dependencies
   - Railway/Render/Fly.io
   - CI/CD (GitHub Actions?)
   - Production env setup
+  - Docker-first setup для стабильной установки `argon2`
+  - Troubleshooting docs для fallback сборки `argon2`
   - Мониторинг (опционально)
 
 **Deliverables:**
@@ -573,6 +603,10 @@ chore: update dependencies
 
 - [ ] OAuth providers (Google, GitHub)
 - [ ] Two-factor authentication (TOTP)
+- [ ] Provider-ready интеграция
+  - Client/Application сущность
+  - client_id / (опционально) client_secret
+  - scopes / permissions
 - [ ] API keys для machine-to-machine auth
 - [ ] Session management UI
 - [ ] Metrics и мониторинг (Prometheus?)
@@ -615,8 +649,9 @@ chore: update dependencies
 
 **Пароли:**
 
-- Bcrypt (не md5, не sha1)
-- Минимум 10 rounds
+- Argon2id (не md5, не sha1)
+- Параметры через env (memory/time/parallelism)
+- Минимум 12 символов
 - Никогда не хранить plain text
 
 **Токены:**
