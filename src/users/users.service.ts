@@ -26,7 +26,7 @@ export class UsersService {
         error.code === '23505' &&
         error.detail.includes('email')
       ) {
-        throw new ConflictException();
+        throw new ConflictException('Email already exists');
       }
       throw error;
     }

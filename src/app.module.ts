@@ -6,7 +6,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 
 const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
-console.log(DOTENV_CONFIG_PATH);
 
 @Module({
   imports: [
