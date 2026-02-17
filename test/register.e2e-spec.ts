@@ -1,22 +1,16 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from '../src/app.module';
+import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
+import { createTestApp } from './helpers/test-app.helper';
 
-describe('Auth Register (e2e)', () => {
+describe('/auth/register (POST)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
+  let httpServer: App;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    dataSource = app.get(DataSource);
+    ({ app, dataSource, httpServer } = await createTestApp());
   });
 
   afterAll(async () => {
@@ -27,8 +21,8 @@ describe('Auth Register (e2e)', () => {
     await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
   });
 
-  it('/auth/register (POST)', async () => {
-    const res = await request(app.getHttpServer()).post('/auth/register').send({
+  it('returns 201 and new user object', async () => {
+    const res = await request(httpServer).post('/auth/register').send({
       email: 'tester@gmail.com',
       password: '172736Aa!',
     });
@@ -40,5 +34,33 @@ describe('Auth Register (e2e)', () => {
       createdAt: expect.any(String),
       updatedAt: expect.any(String),
     });
+  });
+
+  it('returns 409 and message "Email already exists"', async () => {
+    await request(httpServer)
+      .post('/auth/register')
+      .send({
+        email: 'tester@gmail.com',
+        password: '172736Aa!',
+      })
+      .expect(201);
+
+    const res = await request(httpServer).post('/auth/register').send({
+      email: 'tester@gmail.com',
+      password: '172736Aa!',
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.body.message).toBe('Email already exists');
+  });
+
+  it('', async () => {
+    const res = await request(httpServer).post('/auth/register').send({
+      email: 'tester1@gmail.com',
+      password: '12',
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.message).toContain(
+      'password must be longer than or equal to 8 characters',
+    );
   });
 });
