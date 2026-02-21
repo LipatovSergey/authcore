@@ -24,7 +24,7 @@ describe('/auth/register (POST)', () => {
   it('returns 201 and new user object', async () => {
     const res = await request(httpServer).post('/auth/register').send({
       email: 'tester@gmail.com',
-      password: '172736Aa!',
+      password: 'some spaced text',
     });
 
     expect(res.statusCode).toBe(201);
@@ -36,31 +36,31 @@ describe('/auth/register (POST)', () => {
     });
   });
 
-  it('returns 409 and message "Email already exists"', async () => {
+  it('returns 409 when email is already exists', async () => {
     await request(httpServer)
       .post('/auth/register')
       .send({
         email: 'tester@gmail.com',
-        password: '172736Aa!',
+        password: 'some spaced text',
       })
       .expect(201);
 
     const res = await request(httpServer).post('/auth/register').send({
       email: 'tester@gmail.com',
-      password: '172736Aa!',
+      password: 'some spaced text',
     });
     expect(res.statusCode).toBe(409);
     expect(res.body.message).toBe('Email already exists');
   });
 
-  it('', async () => {
+  it('returns 400 if password is too short', async () => {
     const res = await request(httpServer).post('/auth/register').send({
       email: 'tester1@gmail.com',
       password: '12',
     });
     expect(res.statusCode).toBe(400);
     expect(res.body.message).toContain(
-      'password must be longer than or equal to 8 characters',
+      'password must be longer than or equal to 12 characters',
     );
   });
 });
