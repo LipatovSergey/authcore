@@ -172,6 +172,7 @@ DELETE /auth/sessions/:id       (v2.0.0)
 - Минимум 12 символов для пароля
 - Максимум 128+ символов
 - Не применять trim к паролю (пробелы разрешены)
+- Deny-list для очевидно слабых паролей
 
 **Безопасность (что добавится позже):**
 
@@ -510,6 +511,9 @@ chore: update dependencies
   - POST /auth/forgot-password
   - POST /auth/reset-password
   - Email с reset link
+  - Хранить только hash reset token (не raw token)
+  - TTL для reset token
+  - Одноразовость reset token (single-use)
 - [ ] Улучшенное логирование
   - Winston или Pino
   - Structured logs (JSON)
