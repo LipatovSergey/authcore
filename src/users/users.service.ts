@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
@@ -30,5 +30,9 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return this.repo.findOneBy({ email });
   }
 }
