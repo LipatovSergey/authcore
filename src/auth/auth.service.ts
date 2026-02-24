@@ -13,7 +13,8 @@ import {
   PASSWORD_HASHER,
   type PasswordHasher,
 } from './interfaces/password-hasher.interface';
-import type { LoginInput } from './interfaces/login.contract';
+import type { LoginInput, LoginOutput } from './interfaces/login.contract';
+import { TokenService } from './providers/token.service';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -21,6 +22,7 @@ export class AuthService implements OnModuleInit {
     @Inject(PASSWORD_HASHER)
     private readonly passwordHasher: PasswordHasher,
     private readonly usersService: UsersService,
+    private readonly tokenService: TokenService,
   ) {}
 
   private dummyHash = '';
@@ -47,7 +49,7 @@ export class AuthService implements OnModuleInit {
     };
   }
 
-  async login(input: LoginInput) {
+  async login(input: LoginInput): Promise<LoginOutput> {
     const user = await this.usersService.findByEmail(input.email);
     if (!user) {
       await this.passwordHasher.verify(this.dummyHash, input.password);
@@ -63,6 +65,15 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return { message: 'ok' };
+    const payload = { sub: user.id, email: user.email };
+    const [access, refresh] = await Promise.all([
+      this.tokenService.signAccessToken(payload),
+      this.tokenService.signRefreshToken(user.id),
+    ]);
+
+    return {
+      access_token: access,
+      refresh_token: refresh.token,
+    };
   }
 }
