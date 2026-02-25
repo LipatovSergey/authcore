@@ -19,19 +19,26 @@ describe('/auth/login (POST)', () => {
 
   beforeEach(async () => {
     await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
-    await request(httpServer).post('/auth/register').send({
-      email: 'tester@gmail.com',
-      password: 'some spaced text',
-    });
+    await request(httpServer)
+      .post('/auth/register')
+      .send({
+        email: 'tester@gmail.com',
+        password: 'some spaced text',
+      })
+      .expect(201);
   });
 
-  it('returns 200', async () => {
+  it('returns 200 and auth tokens for valid credentials', async () => {
     const res = await request(httpServer).post('/auth/login').send({
       email: 'tester@gmail.com',
       password: 'some spaced text',
     });
 
     expect(res.statusCode).toBe(200);
+    expect(res.body).toStrictEqual({
+      access_token: expect.any(String),
+      refresh_token: expect.any(String),
+    });
   });
 
   it('returns 401 when user does not exist', async () => {
