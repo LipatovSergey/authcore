@@ -5,15 +5,17 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
-import type {
-  RegisterInput,
-  RegisterOutput,
-} from './interfaces/register.contract';
+import type { LoginInput, LoginOutput } from './interfaces/login.contract';
 import {
   PASSWORD_HASHER,
   type PasswordHasher,
 } from './interfaces/password-hasher.interface';
-import type { LoginInput, LoginOutput } from './interfaces/login.contract';
+import { RefreshInput, RefreshOutput } from './interfaces/refresh.contract';
+import type {
+  RegisterInput,
+  RegisterOutput,
+} from './interfaces/register.contract';
+import type { RefreshTokenPayload } from './interfaces/token-payloads.interface';
 import { TokenService } from './providers/token.service';
 
 @Injectable()
@@ -63,6 +65,33 @@ export class AuthService implements OnModuleInit {
 
     if (!check) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const payload = { sub: user.id, email: user.email };
+    const [access, refresh] = await Promise.all([
+      this.tokenService.signAccessToken(payload),
+      this.tokenService.signRefreshToken(user.id),
+    ]);
+
+    return {
+      access_token: access,
+      refresh_token: refresh.token,
+    };
+  }
+
+  async refresh(input: RefreshInput): Promise<RefreshOutput> {
+    let tokenPayload: RefreshTokenPayload;
+    try {
+      tokenPayload = await this.tokenService.verifyRefreshToken(
+        input.refresh_token,
+      );
+    } catch (_error) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const user = await this.usersService.findById(tokenPayload.sub);
+    if (!user) {
+      throw new UnauthorizedException('Invalid refresh token');
     }
 
     const payload = { sub: user.id, email: user.email };

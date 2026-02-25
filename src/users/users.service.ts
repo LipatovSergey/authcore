@@ -1,7 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
+import { User } from './entities/user.entity';
 import type { CreateUserInput } from './interfaces/create-user.input';
 import { isPostgresErrorLike } from './interfaces/utils/is-postgres-db-error.util';
 
@@ -34,5 +34,9 @@ export class UsersService {
 
   async findByEmail(email: string): Promise<User | null> {
     return this.repo.findOneBy({ email });
+  }
+
+  async findById(id: string): Promise<User | null> {
+    return this.repo.findOneBy({ id });
   }
 }
