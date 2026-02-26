@@ -7,9 +7,9 @@ import {
 import { UsersService } from '../users/users.service';
 import type { LoginInput, LoginOutput } from './interfaces/login.contract';
 import {
-  PASSWORD_HASHER,
-  type PasswordHasher,
-} from './interfaces/password-hasher.interface';
+  SECURE_HASHER,
+  type SecureHasher,
+} from './interfaces/secure-hasher.interface';
 import { RefreshInput, RefreshOutput } from './interfaces/refresh.contract';
 import type {
   RegisterInput,
@@ -17,26 +17,29 @@ import type {
 } from './interfaces/register.contract';
 import type { RefreshTokenPayload } from './interfaces/token-payloads.interface';
 import { TokenService } from './providers/token.service';
+import { CreateRefreshTokenInput } from './interfaces/refresh-tokens.contract';
+import { RefreshTokenService } from './providers/refresh-tokens.service';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
   constructor(
-    @Inject(PASSWORD_HASHER)
-    private readonly passwordHasher: PasswordHasher,
+    @Inject(SECURE_HASHER)
+    private readonly secureHasher: SecureHasher,
     private readonly usersService: UsersService,
     private readonly tokenService: TokenService,
+    private readonly refreshTokenService: RefreshTokenService,
   ) {}
 
   private dummyHash = '';
 
   async onModuleInit() {
-    this.dummyHash = await this.passwordHasher.hash(
+    this.dummyHash = await this.secureHasher.hash(
       'authcore_dummy_password_for_timing_equalization_v1',
     );
   }
 
   async register(input: RegisterInput): Promise<RegisterOutput> {
-    const passwordHash = await this.passwordHasher.hash(input.password);
+    const passwordHash = await this.secureHasher.hash(input.password);
 
     const user = await this.usersService.createUser({
       email: input.email,
@@ -54,11 +57,11 @@ export class AuthService implements OnModuleInit {
   async login(input: LoginInput): Promise<LoginOutput> {
     const user = await this.usersService.findByEmail(input.email);
     if (!user) {
-      await this.passwordHasher.verify(this.dummyHash, input.password);
+      await this.secureHasher.verify(this.dummyHash, input.password);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const check = await this.passwordHasher.verify(
+    const check = await this.secureHasher.verify(
       user.passwordHash,
       input.password,
     );
@@ -72,6 +75,19 @@ export class AuthService implements OnModuleInit {
       this.tokenService.signAccessToken(payload),
       this.tokenService.signRefreshToken(user.id),
     ]);
+
+    const refreshTokenHash = await this.secureHasher.hash(refresh.token);
+    const createRefreshTokenInput: CreateRefreshTokenInput = {
+      tokenHash: refreshTokenHash,
+      jti: refresh.jti,
+      userId: user.id,
+    };
+
+    const refreshToken = await this.refreshTokenService.create(
+      createRefreshTokenInput,
+    );
+
+    console.log(refreshToken);
 
     return {
       access_token: access,

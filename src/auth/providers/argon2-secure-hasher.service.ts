@@ -1,10 +1,10 @@
-import type { PasswordHasher } from '../interfaces/password-hasher.interface';
+import type { SecureHasher } from '../interfaces/secure-hasher.interface';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
 
 @Injectable()
-export class Argon2PasswordHasher implements PasswordHasher {
+export class Argon2PasswordHasher implements SecureHasher {
   constructor(private readonly config: ConfigService) {}
   private getHashOptions() {
     return {
