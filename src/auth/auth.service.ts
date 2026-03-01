@@ -81,13 +81,10 @@ export class AuthService implements OnModuleInit {
       tokenHash: refreshTokenHash,
       jti: refresh.jti,
       userId: user.id,
+      expiresAt: refresh.expiresAt,
     };
 
-    const refreshToken = await this.refreshTokenService.create(
-      createRefreshTokenInput,
-    );
-
-    console.log(refreshToken);
+    await this.refreshTokenService.createToken(createRefreshTokenInput);
 
     return {
       access_token: access,
@@ -102,6 +99,23 @@ export class AuthService implements OnModuleInit {
         input.refresh_token,
       );
     } catch (_error) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const dbToken = await this.refreshTokenService.findByJti(tokenPayload.jti);
+    if (
+      !dbToken ||
+      Date.now() >= dbToken.expiresAt.getTime() ||
+      dbToken.revokedAt !== null
+    ) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const isValid = await this.secureHasher.verify(
+      dbToken.tokenHash,
+      input.refresh_token,
+    );
+    if (!isValid) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
