@@ -84,7 +84,7 @@ export class AuthService implements OnModuleInit {
       expiresAt: refresh.expiresAt,
     };
 
-    await this.refreshTokenService.createToken(createRefreshTokenInput);
+    await this.refreshTokenService.create(createRefreshTokenInput);
 
     return {
       access_token: access,
@@ -129,6 +129,17 @@ export class AuthService implements OnModuleInit {
       this.tokenService.signAccessToken(payload),
       this.tokenService.signRefreshToken(user.id),
     ]);
+
+    await this.refreshTokenService.revoke(dbToken.id);
+    const refreshTokenHash = await this.secureHasher.hash(refresh.token);
+    const createRefreshTokenInput: CreateRefreshTokenInput = {
+      tokenHash: refreshTokenHash,
+      jti: refresh.jti,
+      userId: user.id,
+      expiresAt: refresh.expiresAt,
+    };
+
+    await this.refreshTokenService.create(createRefreshTokenInput);
 
     return {
       access_token: access,

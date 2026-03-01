@@ -11,7 +11,7 @@ export class RefreshTokenService {
     private readonly repo: Repository<RefreshToken>,
   ) {}
 
-  async createToken(input: CreateRefreshTokenInput): Promise<RefreshToken> {
+  async create(input: CreateRefreshTokenInput): Promise<RefreshToken> {
     const token = this.repo.create({
       tokenHash: input.tokenHash,
       jti: input.jti,
@@ -24,5 +24,12 @@ export class RefreshTokenService {
 
   async findByJti(jti: string): Promise<RefreshToken | null> {
     return this.repo.findOneBy({ jti });
+  }
+
+  async revoke(id: string): Promise<void> {
+    const { affected } = await this.repo.update(id, { revokedAt: new Date() });
+    if (affected === 0) {
+      throw new Error('Failed to revoke refresh token');
+    }
   }
 }
