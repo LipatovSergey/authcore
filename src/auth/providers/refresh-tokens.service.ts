@@ -11,11 +11,12 @@ export class RefreshTokenService {
     private readonly repo: Repository<RefreshToken>,
   ) {}
 
-  async create(input: CreateRefreshTokenInput) {
+  async createToken(input: CreateRefreshTokenInput) {
     const token = this.repo.create({
       tokenHash: input.tokenHash,
       jti: input.jti,
       userId: input.userId,
+      expiresAt: input.expiresAt,
     });
 
     return await this.repo.save(token);

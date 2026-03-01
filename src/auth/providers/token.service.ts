@@ -4,6 +4,18 @@ import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { randomUUID } from 'node:crypto';
 import type { RefreshTokenPayload } from '../interfaces/token-payloads.interface';
 
+type DecodedWithExp = {
+  exp: number;
+};
+
+function hasNumericExp(value: unknown): value is DecodedWithExp {
+  if (typeof value !== 'object' && value === null) return false;
+  if (!Object.prototype.hasOwnProperty.call(value, 'exp')) return false;
+
+  const exp = (value as Record<string, unknown>)['exp'];
+  return typeof exp === 'number';
+}
+
 @Injectable()
 export class TokenService {
   constructor(
@@ -29,7 +41,12 @@ export class TokenService {
         'jwt.refreshExpiresIn',
       ) as JwtSignOptions['expiresIn'],
     });
-    return { token, jti };
+    const decoded: unknown = this.jwtService.decode(token);
+    if (!hasNumericExp(decoded)) {
+      throw new Error('Failed to decode refresh token');
+    }
+    const expiresAt = new Date(decoded.exp * 1000);
+    return { token, jti, expiresAt };
   }
 
   async verifyRefreshToken(token: string) {
