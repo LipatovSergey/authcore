@@ -47,25 +47,6 @@ describe('/auth/refresh (POST)', () => {
     });
   });
 
-  it('returns 401 if invalid token was passed', async () => {
-    const res = await request(httpServer).post('/auth/refresh').send({
-      refresh_token: 'invalid token',
-    });
-    expect(res.statusCode).toBe(401);
-    expect(res.body.message).toBe('Invalid refresh token');
-  });
-
-  it('returns 401 when old refresh token is reused after rotation', async () => {
-    await request(httpServer).post('/auth/refresh').send({
-      refresh_token: refreshToken,
-    });
-    const res = await request(httpServer).post('/auth/refresh').send({
-      refresh_token: refreshToken,
-    });
-    expect(res.statusCode).toBe(401);
-    expect(res.body.message).toBe('Invalid refresh token');
-  });
-
   it('returns 200 when using the newly issued refresh token after rotation', async () => {
     const response = await request(httpServer).post('/auth/refresh').send({
       refresh_token: refreshToken,
@@ -79,5 +60,41 @@ describe('/auth/refresh (POST)', () => {
       access_token: expect.any(String),
       refresh_token: expect.any(String),
     });
+  });
+
+  it('returns 401 if invalid token was passed', async () => {
+    const res = await request(httpServer).post('/auth/refresh').send({
+      refresh_token: 'invalid token',
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Invalid refresh token');
+  });
+
+  it('returns 401 when old refresh token is reused after rotation', async () => {
+    await request(httpServer)
+      .post('/auth/refresh')
+      .send({
+        refresh_token: refreshToken,
+      })
+      .expect(200);
+
+    const res = await request(httpServer).post('/auth/refresh').send({
+      refresh_token: refreshToken,
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Invalid refresh token');
+  });
+
+  it('returns 401 when old refresh token reused after logout', async () => {
+    await request(httpServer)
+      .post('/auth/logout')
+      .send({ refresh_token: refreshToken })
+      .expect(200);
+
+    const res = await request(httpServer).post('/auth/refresh').send({
+      refresh_token: refreshToken,
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Invalid refresh token');
   });
 });
