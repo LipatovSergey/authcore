@@ -32,4 +32,8 @@ export class RefreshTokenService {
       throw new Error('Failed to revoke refresh token');
     }
   }
+
+  async revokeAllByUserId(userId: string): Promise<void> {
+    await this.repo.update({ userId }, { revokedAt: new Date() });
+  }
 }

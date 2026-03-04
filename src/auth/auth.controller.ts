@@ -5,6 +5,7 @@ import { RegisterOutput } from './interfaces/register.contract';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
+import { LogoutAllDto } from './dto/logoutAll.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -30,5 +31,11 @@ export class AuthController {
   @HttpCode(200)
   logout(@Body() logoutDto: LogoutDto) {
     return this.authService.logout(logoutDto);
+  }
+
+  @Post('logout-all')
+  @HttpCode(200)
+  logoutAll(@Body() logoutAllDto: LogoutAllDto) {
+    return this.authService.logoutAll(logoutAllDto);
   }
 }

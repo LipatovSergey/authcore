@@ -21,6 +21,10 @@ import { CreateRefreshTokenInput } from './interfaces/refresh-tokens.contract';
 import { RefreshTokenService } from './providers/refresh-tokens.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { LogoutInput, LogoutOutput } from './interfaces/logout.contract';
+import {
+  LogoutAllInput,
+  LogoutAllOutput,
+} from './interfaces/logoutAll.contract';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -108,6 +112,19 @@ export class AuthService implements OnModuleInit {
     );
 
     await this.refreshTokenService.revoke(dbToken.id);
+    return { message: 'ok' };
+  }
+
+  async logoutAll(input: LogoutAllInput): Promise<LogoutAllOutput> {
+    const tokenPayload: RefreshTokenPayload =
+      await this.verifyRefreshPayloadOrThrow(input.refresh_token);
+
+    const dbToken = await this.validateRefreshTokenOrThrow(
+      tokenPayload.jti,
+      input.refresh_token,
+    );
+
+    await this.refreshTokenService.revokeAllByUserId(dbToken.userId);
     return { message: 'ok' };
   }
 
