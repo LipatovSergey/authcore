@@ -19,6 +19,8 @@ import type { RefreshTokenPayload } from './interfaces/token-payloads.interface'
 import { TokenService } from './providers/token.service';
 import { CreateRefreshTokenInput } from './interfaces/refresh-tokens.contract';
 import { RefreshTokenService } from './providers/refresh-tokens.service';
+import { RefreshToken } from './entities/refresh-token.entity';
+import { LogoutInput, LogoutOutput } from './interfaces/logout.contract';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -71,16 +73,55 @@ export class AuthService implements OnModuleInit {
     }
 
     const payload = { sub: user.id, email: user.email };
+    const tokens = await this.createAndStoreTokens(payload);
+    return tokens;
+  }
+
+  async refresh(input: RefreshInput): Promise<RefreshOutput> {
+    const tokenPayload: RefreshTokenPayload =
+      await this.verifyRefreshPayloadOrThrow(input.refresh_token);
+
+    const dbToken = await this.validateRefreshTokenOrThrow(
+      tokenPayload.jti,
+      input.refresh_token,
+    );
+
+    const user = await this.usersService.findById(dbToken.userId);
+    if (!user) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const payload = { sub: user.id, email: user.email };
+    const tokens = await this.createAndStoreTokens(payload);
+
+    await this.refreshTokenService.revoke(dbToken.id);
+    return tokens;
+  }
+
+  async logout(input: LogoutInput): Promise<LogoutOutput> {
+    const tokenPayload: RefreshTokenPayload =
+      await this.verifyRefreshPayloadOrThrow(input.refresh_token);
+
+    const dbToken = await this.validateRefreshTokenOrThrow(
+      tokenPayload.jti,
+      input.refresh_token,
+    );
+
+    await this.refreshTokenService.revoke(dbToken.id);
+    return { message: 'ok' };
+  }
+
+  private async createAndStoreTokens(payload: { sub: string; email: string }) {
     const [access, refresh] = await Promise.all([
       this.tokenService.signAccessToken(payload),
-      this.tokenService.signRefreshToken(user.id),
+      this.tokenService.signRefreshToken(payload.sub),
     ]);
 
     const refreshTokenHash = await this.secureHasher.hash(refresh.token);
     const createRefreshTokenInput: CreateRefreshTokenInput = {
       tokenHash: refreshTokenHash,
       jti: refresh.jti,
-      userId: user.id,
+      userId: payload.sub,
       expiresAt: refresh.expiresAt,
     };
 
@@ -92,17 +133,21 @@ export class AuthService implements OnModuleInit {
     };
   }
 
-  async refresh(input: RefreshInput): Promise<RefreshOutput> {
-    let tokenPayload: RefreshTokenPayload;
+  private async verifyRefreshPayloadOrThrow(
+    token: string,
+  ): Promise<RefreshTokenPayload> {
     try {
-      tokenPayload = await this.tokenService.verifyRefreshToken(
-        input.refresh_token,
-      );
+      return await this.tokenService.verifyRefreshToken(token);
     } catch (_error) {
       throw new UnauthorizedException('Invalid refresh token');
     }
+  }
 
-    const dbToken = await this.refreshTokenService.findByJti(tokenPayload.jti);
+  private async validateRefreshTokenOrThrow(
+    jti: string,
+    token: string,
+  ): Promise<RefreshToken> {
+    const dbToken = await this.refreshTokenService.findByJti(jti);
     if (
       !dbToken ||
       Date.now() >= dbToken.expiresAt.getTime() ||
@@ -111,39 +156,11 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const isValid = await this.secureHasher.verify(
-      dbToken.tokenHash,
-      input.refresh_token,
-    );
+    const isValid = await this.secureHasher.verify(dbToken.tokenHash, token);
     if (!isValid) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const user = await this.usersService.findById(tokenPayload.sub);
-    if (!user) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-
-    const payload = { sub: user.id, email: user.email };
-    const [access, refresh] = await Promise.all([
-      this.tokenService.signAccessToken(payload),
-      this.tokenService.signRefreshToken(user.id),
-    ]);
-
-    await this.refreshTokenService.revoke(dbToken.id);
-    const refreshTokenHash = await this.secureHasher.hash(refresh.token);
-    const createRefreshTokenInput: CreateRefreshTokenInput = {
-      tokenHash: refreshTokenHash,
-      jti: refresh.jti,
-      userId: user.id,
-      expiresAt: refresh.expiresAt,
-    };
-
-    await this.refreshTokenService.create(createRefreshTokenInput);
-
-    return {
-      access_token: access,
-      refresh_token: refresh.token,
-    };
+    return dbToken;
   }
 }
