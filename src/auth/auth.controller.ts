@@ -1,4 +1,12 @@
-import { Controller, Post, Body, HttpCode } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  Get,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { RegisterOutput } from './interfaces/register.contract';
@@ -6,6 +14,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { LogoutAllDto } from './dto/logoutAll.dto';
+import { AuthGuard } from './auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -37,5 +46,11 @@ export class AuthController {
   @HttpCode(200)
   logoutAll(@Body() logoutAllDto: LogoutAllDto) {
     return this.authService.logoutAll(logoutAllDto);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('me')
+  getProfile(@Request() req) {
+    return req.user;
   }
 }

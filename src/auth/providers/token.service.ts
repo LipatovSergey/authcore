@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { randomUUID } from 'node:crypto';
-import type { RefreshTokenPayload } from '../interfaces/token-payloads.interface';
+import type {
+  AccessTokenPayload,
+  RefreshTokenPayload,
+} from '../interfaces/token-payloads.interface';
 
 type DecodedWithExp = {
   exp: number;
@@ -23,7 +26,7 @@ export class TokenService {
     private readonly config: ConfigService,
   ) {}
 
-  async signAccessToken(payload: { sub: string; email: string }) {
+  async signAccessToken(payload: AccessTokenPayload) {
     return this.jwtService.signAsync(payload, {
       secret: this.config.get<string>('jwt.accessSecret'),
       expiresIn: this.config.get<string>(
