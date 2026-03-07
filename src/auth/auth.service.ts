@@ -1,6 +1,7 @@
 import {
   Inject,
   Injectable,
+  NotFoundException,
   OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -17,14 +18,15 @@ import type {
 } from './interfaces/register.contract';
 import type { RefreshTokenPayload } from './interfaces/token-payloads.interface';
 import { TokenService } from './providers/token.service';
-import { CreateRefreshTokenInput } from './interfaces/refresh-tokens.contract';
+import type { CreateRefreshTokenInput } from './interfaces/refresh-tokens.contract';
 import { RefreshTokenService } from './providers/refresh-tokens.service';
 import { RefreshToken } from './entities/refresh-token.entity';
-import { LogoutInput, LogoutOutput } from './interfaces/logout.contract';
+import type { LogoutInput, LogoutOutput } from './interfaces/logout.contract';
 import {
   LogoutAllInput,
   LogoutAllOutput,
-} from './interfaces/logoutAll.contract';
+} from './interfaces/logout-all.contract';
+import { GetProfileOutput } from './interfaces/get-profile.contract';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -37,7 +39,6 @@ export class AuthService implements OnModuleInit {
   ) {}
 
   private dummyHash = '';
-
   async onModuleInit() {
     this.dummyHash = await this.secureHasher.hash(
       'authcore_dummy_password_for_timing_equalization_v1',
@@ -126,6 +127,19 @@ export class AuthService implements OnModuleInit {
 
     await this.refreshTokenService.revokeAllByUserId(dbToken.userId);
     return { message: 'ok' };
+  }
+
+  async getProfile(userId: string): Promise<GetProfileOutput> {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    return {
+      id: user.id,
+      email: user.email,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 
   private async createAndStoreTokens(payload: { sub: string; email: string }) {

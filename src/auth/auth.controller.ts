@@ -15,6 +15,7 @@ import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { LogoutAllDto } from './dto/logoutAll.dto';
 import { AuthGuard } from './auth.guard';
+import type { AuthenticatedRequest } from './interfaces/authenticated-request.interface';
 
 @Controller('auth')
 export class AuthController {
@@ -50,7 +51,7 @@ export class AuthController {
 
   @UseGuards(AuthGuard)
   @Get('me')
-  getProfile(@Request() req) {
-    return req.user;
+  getProfile(@Request() req: AuthenticatedRequest) {
+    return this.authService.getProfile(req.payload.sub);
   }
 }
