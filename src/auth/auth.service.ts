@@ -1,7 +1,6 @@
 import {
   Inject,
   Injectable,
-  NotFoundException,
   OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -56,8 +55,8 @@ export class AuthService implements OnModuleInit {
     return {
       id: user.id,
       email: user.email,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
+      created_at: user.createdAt,
+      updated_at: user.updatedAt,
     };
   }
 
@@ -137,8 +136,8 @@ export class AuthService implements OnModuleInit {
     return {
       id: user.id,
       email: user.email,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
+      created_at: user.createdAt,
+      updated_at: user.updatedAt,
     };
   }
 

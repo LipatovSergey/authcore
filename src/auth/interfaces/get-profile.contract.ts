@@ -1,6 +1,6 @@
 export interface GetProfileOutput {
   id: string;
   email: string;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
