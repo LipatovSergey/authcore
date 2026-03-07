@@ -42,8 +42,8 @@ describe('/auth/me (GET)', () => {
     expect(res.body).toStrictEqual({
       id: expect.any(String),
       email: 'tester@gmail.com',
-      createdAt: expect.any(String),
-      updatedAt: expect.any(String),
+      created_at: expect.any(String),
+      updated_at: expect.any(String),
     });
   });
 
