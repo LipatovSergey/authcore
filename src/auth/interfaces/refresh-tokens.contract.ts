@@ -4,3 +4,8 @@ export interface CreateRefreshTokenInput {
   userId: string;
   expiresAt: Date;
 }
+
+export interface RotateRefreshTokenInput {
+  oldTokenId: string;
+  newTokenInput: CreateRefreshTokenInput;
+}

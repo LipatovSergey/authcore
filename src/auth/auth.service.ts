@@ -77,8 +77,25 @@ export class AuthService implements OnModuleInit {
     }
 
     const payload = { sub: user.id, email: user.email };
-    const tokens = await this.createAndStoreTokens(payload);
-    return tokens;
+    const [access, refresh] = await Promise.all([
+      this.tokenService.signAccessToken(payload),
+      this.tokenService.signRefreshToken(payload.sub),
+    ]);
+
+    const refreshTokenHash = await this.secureHasher.hash(refresh.token);
+    const createRefreshTokenInput: CreateRefreshTokenInput = {
+      tokenHash: refreshTokenHash,
+      jti: refresh.jti,
+      userId: payload.sub,
+      expiresAt: refresh.expiresAt,
+    };
+
+    await this.refreshTokenService.create(createRefreshTokenInput);
+
+    return {
+      access_token: access,
+      refresh_token: refresh.token,
+    };
   }
 
   async refresh(input: RefreshInput): Promise<RefreshOutput> {
@@ -96,9 +113,29 @@ export class AuthService implements OnModuleInit {
     }
 
     const payload = { sub: user.id, email: user.email };
-    const tokens = await this.createAndStoreTokens(payload);
+    const [access, refresh] = await Promise.all([
+      this.tokenService.signAccessToken(payload),
+      this.tokenService.signRefreshToken(payload.sub),
+    ]);
 
-    await this.refreshTokenService.revoke(dbToken.id);
+    const refreshTokenHash = await this.secureHasher.hash(refresh.token);
+    const createRefreshTokenInput: CreateRefreshTokenInput = {
+      tokenHash: refreshTokenHash,
+      jti: refresh.jti,
+      userId: payload.sub,
+      expiresAt: refresh.expiresAt,
+    };
+
+    await this.refreshTokenService.rotate({
+      oldTokenId: dbToken.id,
+      newTokenInput: createRefreshTokenInput,
+    });
+
+    const tokens = {
+      access_token: access,
+      refresh_token: refresh.token,
+    };
+
     return tokens;
   }
 
@@ -138,28 +175,6 @@ export class AuthService implements OnModuleInit {
       email: user.email,
       created_at: user.createdAt,
       updated_at: user.updatedAt,
-    };
-  }
-
-  private async createAndStoreTokens(payload: { sub: string; email: string }) {
-    const [access, refresh] = await Promise.all([
-      this.tokenService.signAccessToken(payload),
-      this.tokenService.signRefreshToken(payload.sub),
-    ]);
-
-    const refreshTokenHash = await this.secureHasher.hash(refresh.token);
-    const createRefreshTokenInput: CreateRefreshTokenInput = {
-      tokenHash: refreshTokenHash,
-      jti: refresh.jti,
-      userId: payload.sub,
-      expiresAt: refresh.expiresAt,
-    };
-
-    await this.refreshTokenService.create(createRefreshTokenInput);
-
-    return {
-      access_token: access,
-      refresh_token: refresh.token,
     };
   }
 

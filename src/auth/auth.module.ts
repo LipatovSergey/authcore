@@ -14,6 +14,7 @@ import { RefreshTokenService } from './providers/refresh-tokens.service';
 @Module({
   imports: [
     UsersModule,
+    // default values must be specified even if they are always overwritten
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
