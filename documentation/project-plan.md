@@ -19,7 +19,7 @@
 **База данных:**
 
 - PostgreSQL 17 (основное хранилище)
-- Redis 7 (кэширование токенов)
+- Redis 7 (планируется с v2.0.0 для rate limiting/кэша)
 - TypeORM (ORM)
 
 **Инфраструктура:**
@@ -46,7 +46,7 @@
 - Таблица `users` - данные пользователей
 - Таблица `refresh_tokens` - refresh токены для аудита
 
-**Redis - кэширование:**
+**Redis - кэширование (с v2.0.0):**
 
 - Активные refresh токены (быстрая валидация)
 - TTL для автоматической очистки
@@ -148,6 +148,7 @@ DELETE /auth/sessions/:id       (v2.0.0)
 
 - **Access token:** JWT, 15 минут, HS256
 - **Refresh token:** JWT, 7 дней, хранится в БД
+- **Refresh rotation (текущий этап):** реализуется без DB-транзакции; атомарная транзакционная версия (`create new + revoke old` в одном transaction boundary) запланирована следующим шагом hardening
 - **Передача:** Access в `Authorization: Bearer`, Refresh в request body
 - **Фиксированная модель auth для проекта:** только JWT + Refresh (cookie-session ветка не используется в текущем плане)
 
@@ -173,6 +174,7 @@ DELETE /auth/sessions/:id       (v2.0.0)
 - Максимум 128+ символов
 - Не применять trim к паролю (пробелы разрешены)
 - Deny-list для очевидно слабых паролей
+- configuration и joi проверка параметров
 
 **Безопасность (что добавится позже):**
 
@@ -264,10 +266,6 @@ DATABASE_USER=postgres
 DATABASE_PASSWORD=postgres
 DATABASE_NAME=authcore
 
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
 # JWT
 JWT_ACCESS_SECRET=your-secret-key
 JWT_REFRESH_SECRET=another-secret-key
@@ -282,6 +280,13 @@ ARGON2_PARALLELISM=1
 # App
 PORT=3000
 NODE_ENV=development
+```
+
+**Redis ENV (с v2.0.0):**
+
+```bash
+REDIS_HOST=localhost
+REDIS_PORT=6379
 ```
 
 **Валидация env:**
@@ -447,39 +452,38 @@ chore: update dependencies
 
 **Неделя 1: Setup + Nest.js основы**
 
-- [ ] Инициализация Nest.js проекта
-- [ ] Docker Compose (PostgreSQL + Redis)
-- [ ] TypeORM setup и конфигурация
-- [ ] Первые миграции (users, refresh_tokens)
-- [ ] Модульная структура (auth, users)
-- [ ] Env variables + валидация
+- [x] Инициализация Nest.js проекта
+- [x] Docker Compose (PostgreSQL)
+- [x] TypeORM setup и конфигурация
+- [x] Первые миграции (users, refresh_tokens)
+- [x] Модульная структура (auth, users)
+- [x] Env variables + валидация
 
 **Неделя 2: Core функциональность**
 
-- [ ] Users module (entity, service)
-- [ ] Registration endpoint + DTO
-- [ ] Password hashing (Argon2id)
-- [ ] Password policy (min 12, no trim, spaces allowed)
-- [ ] JWT генерация (access + refresh)
-- [ ] Login endpoint
+- [x] Users module (entity, service)
+- [x] Registration endpoint + DTO
+- [x] Password hashing (Argon2id)
+- [x] Password policy (min 12, no trim, spaces allowed)
+- [x] JWT генерация (access + refresh)
+- [x] Login endpoint
 - [ ] Базовый rate limiting на login/register
-- [ ] Базовый error handling
+- [x] Базовый error handling
 
 **Неделя 3: Токены и Guards**
 
-- [ ] Refresh tokens в PostgreSQL
-- [ ] Redis интеграция для кэша
-- [ ] Refresh endpoint
-- [ ] JWT Strategy + Guard
-- [ ] Logout (инвалидация токенов)
-- [ ] GET /auth/me endpoint
+- [x] Refresh tokens в PostgreSQL
+- [x] Refresh endpoint
+- [x] JWT Strategy + Guard - частично: реализован ручной AuthGuard (без Passport/JWT Strategy)
+- [x] Logout (инвалидация токенов)
+- [x] GET /auth/me endpoint
 
 **Неделя 4: Polish и релиз**
 
-- [ ] Validation pipes для всех DTOs
-- [ ] Улучшенный error handling
+- [x] Validation pipes для всех DTOs
+- [x] Улучшенный error handling
 - [ ] Swagger setup и аннотации
-- [ ] E2E тесты (4-5 сценариев)
+- [x] E2E тесты (4-5 сценариев)
 - [ ] Логирование основных событий
 - [ ] README с инструкциями
 - [ ] .env.example
@@ -492,6 +496,7 @@ chore: update dependencies
 - Docker Compose для запуска
 - E2E тесты
 - README
+- Redis интеграция не обязательна для v1.0.0 (перенесена в v2.0.0)
 
 ---
 
@@ -551,6 +556,10 @@ chore: update dependencies
   - На login (защита от brute force)
   - На registration/reset (защита от спама)
   - Redis для хранения счётчиков
+- [ ] Redis интеграция (кэш/счётчики)
+  - Подключение Redis в docker-compose
+  - Клиент Redis в приложении
+  - Использование для rate limiting и cache-слоёв
 - [ ] Observability и аудит
   - Correlation/request ID
   - Audit events (login success/fail, reset requested/used, password changed, refresh rotated/revoked)
