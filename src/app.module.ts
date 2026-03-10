@@ -32,14 +32,8 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
         ARGON2_TIME_COST: Joi.number().integer().positive().required(),
         ARGON2_PARALLELISM: Joi.number().integer().positive().required(),
 
-        THROTTLE_GLOBAL_LIMIT: Joi.number().integer().positive().required(),
-        THROTTLE_GLOBAL_TTL_MS: Joi.number().integer().positive().required(),
-        THROTTLE_LOGIN_LIMIT: Joi.number().integer().positive().required(),
-        THROTTLE_LOGIN_TTL_MS: Joi.number().integer().positive().required(),
-        THROTTLE_REGISTER_LIMIT: Joi.number().integer().positive().required(),
-        THROTTLE_REGISTER_TTL_MS: Joi.number().integer().positive().required(),
-        THROTTLE_REFRESH_LIMIT: Joi.number().integer().positive().required(),
-        THROTTLE_REFRESH_TTL_MS: Joi.number().integer().positive().required(),
+        THROTTLE_DEFAULT_LIMIT: Joi.number().integer().positive().required(),
+        THROTTLE_DEFAULT_TTL_MS: Joi.number().integer().positive().required(),
 
         PORT: Joi.number().integer().positive().optional(),
         NODE_ENV: Joi.string().optional(),
@@ -52,8 +46,8 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => [
         {
-          ttl: config.getOrThrow<number>('throttle.global.ttlMs'),
-          limit: config.getOrThrow<number>('throttle.global.limit'),
+          ttl: config.getOrThrow<number>('throttlerDefault.ttlMs'),
+          limit: config.getOrThrow<number>('tthrottlerDefault.limit'),
         },
       ],
     }),
