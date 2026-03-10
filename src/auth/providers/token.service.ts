@@ -28,8 +28,8 @@ export class TokenService {
 
   async signAccessToken(payload: AccessTokenPayload) {
     return this.jwtService.signAsync(payload, {
-      secret: this.config.get<string>('jwt.accessSecret'),
-      expiresIn: this.config.get<string>(
+      secret: this.config.getOrThrow<string>('jwt.accessSecret'),
+      expiresIn: this.config.getOrThrow<string>(
         'jwt.accessExpiresIn',
       ) as JwtSignOptions['expiresIn'],
     });
@@ -39,8 +39,8 @@ export class TokenService {
     const jti = randomUUID();
     const payload: RefreshTokenPayload = { sub, jti };
     const token = await this.jwtService.signAsync(payload, {
-      secret: this.config.get<string>('jwt.refreshSecret'),
-      expiresIn: this.config.get<string>(
+      secret: this.config.getOrThrow<string>('jwt.refreshSecret'),
+      expiresIn: this.config.getOrThrow<string>(
         'jwt.refreshExpiresIn',
       ) as JwtSignOptions['expiresIn'],
     });
@@ -54,7 +54,7 @@ export class TokenService {
 
   async verifyRefreshToken(token: string) {
     return this.jwtService.verifyAsync<RefreshTokenPayload>(token, {
-      secret: this.config.get<string>('jwt.refreshSecret'),
+      secret: this.config.getOrThrow<string>('jwt.refreshSecret'),
     });
   }
 }

@@ -8,9 +8,9 @@ export class Argon2PasswordHasher implements SecureHasher {
   constructor(private readonly config: ConfigService) {}
   private getHashOptions() {
     return {
-      memoryCost: this.config.get<number>('argon2.memoryCost'),
-      timeCost: this.config.get<number>('argon2.timeCost'),
-      parallelism: this.config.get<number>('argon2.parallelism'),
+      memoryCost: this.config.getOrThrow<number>('argon2.memoryCost'),
+      timeCost: this.config.getOrThrow<number>('argon2.timeCost'),
+      parallelism: this.config.getOrThrow<number>('argon2.parallelism'),
       type: argon2.argon2id,
     };
   }

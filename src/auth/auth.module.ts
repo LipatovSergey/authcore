@@ -18,9 +18,9 @@ import { RefreshTokenService } from './providers/refresh-tokens.service';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get('jwt.accessSecret'),
+        secret: config.getOrThrow('jwt.accessSecret'),
         signOptions: {
-          expiresIn: config.get('jwt.accessExpiresIn'),
+          expiresIn: config.getOrThrow('jwt.accessExpiresIn'),
         },
       }),
     }),
