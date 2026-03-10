@@ -47,7 +47,7 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
       useFactory: (config: ConfigService) => [
         {
           ttl: config.getOrThrow<number>('throttlerDefault.ttlMs'),
-          limit: config.getOrThrow<number>('tthrottlerDefault.limit'),
+          limit: config.getOrThrow<number>('throttlerDefault.limit'),
         },
       ],
     }),
