@@ -16,21 +16,25 @@ import { LogoutDto } from './dto/logout.dto';
 import { LogoutAllDto } from './dto/logoutAll.dto';
 import { AuthGuard } from './auth.guard';
 import type { AuthenticatedRequest } from './interfaces/authenticated-request.interface';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+  @Throttle({ default: { limit: 5, ttl: 600000 } })
   @Post('register')
   register(@Body() registerDto: RegisterDto): Promise<RegisterOutput> {
     return this.authService.register(registerDto);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   @HttpCode(200)
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
 
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post('refresh')
   @HttpCode(200)
   refresh(@Body() refreshDto: RefreshDto) {
