@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import * as Joi from 'joi';
 import configuration from './config/configuration';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
 
@@ -30,6 +32,15 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
         ARGON2_TIME_COST: Joi.number().integer().positive().required(),
         ARGON2_PARALLELISM: Joi.number().integer().positive().required(),
 
+        THROTTLE_GLOBAL_LIMIT: Joi.number().integer().positive().required(),
+        THROTTLE_GLOBAL_TTL_MS: Joi.number().integer().positive().required(),
+        THROTTLE_LOGIN_LIMIT: Joi.number().integer().positive().required(),
+        THROTTLE_LOGIN_TTL_MS: Joi.number().integer().positive().required(),
+        THROTTLE_REGISTER_LIMIT: Joi.number().integer().positive().required(),
+        THROTTLE_REGISTER_TTL_MS: Joi.number().integer().positive().required(),
+        THROTTLE_REFRESH_LIMIT: Joi.number().integer().positive().required(),
+        THROTTLE_REFRESH_TTL_MS: Joi.number().integer().positive().required(),
+
         PORT: Joi.number().integer().positive().optional(),
         NODE_ENV: Joi.string().optional(),
       }),
@@ -37,21 +48,37 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
       load: [configuration],
     }),
 
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          ttl: config.getOrThrow<number>('throttle.global.ttlMs'),
+          limit: config.getOrThrow<number>('throttle.global.limit'),
+        },
+      ],
+    }),
+
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
-        host: config.get<string>('database.host'),
-        port: config.get<number>('database.port'),
-        username: config.get<string>('database.username'),
-        password: config.get<string>('database.password'),
-        database: config.get<string>('database.name'),
+        host: config.getOrThrow<string>('database.host'),
+        port: config.getOrThrow<number>('database.port'),
+        username: config.getOrThrow<string>('database.username'),
+        password: config.getOrThrow<string>('database.password'),
+        database: config.getOrThrow<string>('database.name'),
         autoLoadEntities: true,
         synchronize: false,
       }),
     }),
 
     AuthModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}
