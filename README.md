@@ -66,13 +66,18 @@ Swagger UI is available at `GET /api`.
 - pnpm (recommended)
 - Docker and Docker Compose
 
-## Set up
+## Getting Started
+
+### 1. Install dependencies
 
 ```bash
 pnpm install
 ```
 
-Create env files:
+### 2. Create env files
+
+Create these env files using `.env.example` as a reference:
+
 - `.env.development`
 - `.env.test`
 - `.env.test.throttle`
@@ -80,32 +85,6 @@ Create env files:
 For local production-like runs you can also create `.env.production`, but it is not required for MVP development and tests.
 
 The application validates required environment variables on startup through `@nestjs/config` and Joi.
-
-Current required variables:
-
-```env
-POSTGRES_HOST=
-POSTGRES_PORT=
-POSTGRES_USER=
-POSTGRES_PASSWORD=
-POSTGRES_DB=
-
-JWT_ACCESS_SECRET=
-JWT_REFRESH_SECRET=
-JWT_ACCESS_EXPIRES_IN=
-JWT_REFRESH_EXPIRES_IN=
-
-ARGON2_MEMORY_COST=
-ARGON2_TIME_COST=
-ARGON2_PARALLELISM=
-
-THROTTLE_DEFAULT_LIMIT=
-THROTTLE_DEFAULT_TTL_MS=
-
-PORT=
-NODE_ENV=
-```
-
 
 `DOTENV_CONFIG_PATH` selects which env file Nest loads.
 
@@ -118,15 +97,15 @@ THROTTLE_DEFAULT_TTL_MS=1000
 
 These values are required because `test/throttling.e2e-spec.ts` currently asserts behavior against them.
 
-## Running PostgreSQL
-
-Start the local database with Docker Compose:
+### 3. Start PostgreSQL
 
 ```bash
 docker compose up -d
 ```
 
 The current `docker-compose.yml` starts PostgreSQL 17 on port `5432` by default.
+
+### 4. Run migrations
 
 Before running the app or tests on a clean database, apply migrations:
 
@@ -135,28 +114,7 @@ pnpm migration:run:dev
 pnpm migration:run:test
 ```
 
-## Database Migrations
-
-Development:
-
-```bash
-pnpm migration:run:dev
-```
-
-Test:
-
-```bash
-pnpm migration:run:test
-```
-
-Other available commands:
-
-- `pnpm migration:show:dev`
-- `pnpm migration:revert:dev`
-- `pnpm migration:show:test`
-- `pnpm migration:revert:test`
-
-## Running The App
+### 5. Start the app
 
 Development:
 
@@ -190,6 +148,27 @@ General test commands:
 - `pnpm test`
 - `pnpm test:watch`
 - `pnpm test:cov`
+
+## Database Migrations
+
+Development:
+
+```bash
+pnpm migration:run:dev
+```
+
+Test:
+
+```bash
+pnpm migration:run:test
+```
+
+Other available commands:
+
+- `pnpm migration:show:dev`
+- `pnpm migration:revert:dev`
+- `pnpm migration:show:test`
+- `pnpm migration:revert:test`
 
 ## Swagger
 
