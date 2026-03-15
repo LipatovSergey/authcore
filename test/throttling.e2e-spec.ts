@@ -3,6 +3,8 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { createTestApp } from './helpers/test-app.helper';
 
+//TODO:  now script runs only this file for test:e2e:throttle with .env.test.throttle config.
+//Now limits are hardcoded. Later it should should have single source of truth.
 describe('/auth/register (POST)', () => {
   let app: INestApplication<App>;
   let httpServer: App;
