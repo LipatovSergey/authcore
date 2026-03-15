@@ -176,6 +176,13 @@ DELETE /auth/sessions/:id       (v2.0.0)
 - Deny-list для очевидно слабых паролей
 - configuration и joi проверка параметров
 
+**Rate limiting (MVP):**
+
+- `@nestjs/throttler` с глобальным `APP_GUARD`
+- Глобальный лимит по умолчанию (из env)
+- Endpoint overrides для `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`
+- Текущее хранилище: in-memory (без Redis в MVP)
+
 **Безопасность (что добавится позже):**
 
 - HTTP-only cookies для refresh (v2.0.0)
@@ -277,6 +284,10 @@ ARGON2_MEMORY_COST=19456
 ARGON2_TIME_COST=2
 ARGON2_PARALLELISM=1
 
+# Throttle (MVP)
+THROTTLE_GLOBAL_LIMIT=60
+THROTTLE_GLOBAL_TTL_MS=60000
+
 # App
 PORT=3000
 NODE_ENV=development
@@ -357,6 +368,7 @@ REDIS_PORT=6379
 - Доступно на `/api`
 - Try-it-out функциональность
 - Bearer auth support
+- Для точных OpenAPI response schemas в текущем MVP допускаются отдельные Swagger DTO classes с `@ApiProperty`, даже если сервисные output contracts пока остаются на TypeScript interfaces
 
 **README.md:**
 
@@ -467,7 +479,7 @@ chore: update dependencies
 - [x] Password policy (min 12, no trim, spaces allowed)
 - [x] JWT генерация (access + refresh)
 - [x] Login endpoint
-- [ ] Базовый rate limiting на login/register
+- [x] Базовый rate limiting на login/register
 - [x] Базовый error handling
 
 **Неделя 3: Токены и Guards**
@@ -484,6 +496,7 @@ chore: update dependencies
 - [x] Улучшенный error handling
 - [ ] Swagger setup и аннотации
 - [x] E2E тесты (4-5 сценариев)
+- [x] Базовые E2E тесты throttling (`test/throttling.e2e-spec.ts`, отдельный `test:e2e:throttle`)
 - [ ] Логирование основных событий
 - [ ] README с инструкциями
 - [ ] .env.example
@@ -527,6 +540,9 @@ chore: update dependencies
   - Unit тесты для сервисов
   - E2E для новых endpoints
   - Покрытие ~60%+
+- [ ] Упростить response contracts
+  - Оценить переход с output interfaces на response DTO classes как single source of truth для TypeScript + Swagger
+  - Не делать это до завершения MVP, чтобы не расширять scope
 
 **Deliverables:**
 
@@ -552,7 +568,7 @@ chore: update dependencies
   - Refresh token в cookie
   - CSRF protection
   - Secure flag для production
-- [ ] Rate limiting
+- [ ] Rate limiting (distributed / production-grade)
   - На login (защита от brute force)
   - На registration/reset (защита от спама)
   - Redis для хранения счётчиков
