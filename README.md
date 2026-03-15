@@ -1,98 +1,241 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# AuthCore
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+AuthCore is a NestJS authentication service built around JWT access and refresh tokens. Database is PostgreSQL.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Current MVP features:
 
-## Description
+- User registration
+- Login with email and password
+- Access token refresh with refresh token rotation
+- Logout from current session
+- Logout from all sessions
+- Protected `GET /auth/me`
+- Swagger UI documentation
+- E2E coverage for auth flows and throttling
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Stack
 
-## Project setup
+- Node.js 20+
+- NestJS
+- TypeScript
+- PostgreSQL
+- TypeORM
+- Argon2id
+- JWT
+- Jest + Supertest
+
+## Architecture
+
+The project follows a modular layered structure:
+
+- `auth` handles controllers, DTOs, guards, token flow, and refresh token persistence
+- `users` handles user persistence and lookup
+- `database/migrations` stores database schema changes
+- `config` centralizes environment-based configuration
+
+Conventions used in the project:
+
+- Service and internal code: `camelCase`
+- API JSON: `snake_case`
+- Database columns: `snake_case`
+
+## API Overview
+
+Available auth endpoints:
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `POST /auth/logout`
+- `POST /auth/logout-all`
+- `GET /auth/me`
+
+Swagger UI is available at `GET /api`.
+
+## Authentication Model
+
+- Access token: JWT sent in `Authorization: Bearer <token>`
+- Refresh token: JWT sent in request body
+- Refresh tokens are persisted in PostgreSQL
+- Refresh flow uses token rotation
+- Rotation is hardened with an atomic database transaction
+
+## Prerequisites
+
+- Node.js 20+
+- pnpm (recommended)
+- Docker and Docker Compose
+
+## Set up
 
 ```bash
-$ pnpm install
+pnpm install
 ```
 
-## Compile and run the project
+Create env files:
+- `.env.development`
+- `.env.test`
+- `.env.test.throttle`
+
+For local production-like runs you can also create `.env.production`, but it is not required for MVP development and tests.
+
+The application validates required environment variables on startup through `@nestjs/config` and Joi.
+
+Current required variables:
+
+```env
+POSTGRES_HOST=
+POSTGRES_PORT=
+POSTGRES_USER=
+POSTGRES_PASSWORD=
+POSTGRES_DB=
+
+JWT_ACCESS_SECRET=
+JWT_REFRESH_SECRET=
+JWT_ACCESS_EXPIRES_IN=
+JWT_REFRESH_EXPIRES_IN=
+
+ARGON2_MEMORY_COST=
+ARGON2_TIME_COST=
+ARGON2_PARALLELISM=
+
+THROTTLE_DEFAULT_LIMIT=
+THROTTLE_DEFAULT_TTL_MS=
+
+PORT=
+NODE_ENV=
+```
+
+
+`DOTENV_CONFIG_PATH` selects which env file Nest loads.
+
+For throttling-specific E2E tests, `.env.test.throttle` must currently use:
+
+```env
+THROTTLE_DEFAULT_LIMIT=2
+THROTTLE_DEFAULT_TTL_MS=1000
+```
+
+These values are required because `test/throttling.e2e-spec.ts` currently asserts behavior against them.
+
+## Running PostgreSQL
+
+Start the local database with Docker Compose:
 
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+docker compose up -d
 ```
 
-## Run tests
+The current `docker-compose.yml` starts PostgreSQL 17 on port `5432` by default.
+
+Before running the app or tests on a clean database, apply migrations:
 
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+pnpm migration:run:dev
+pnpm migration:run:test
 ```
 
-## Deployment
+## Database Migrations
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Development:
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+pnpm migration:run:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Test:
 
-## Resources
+```bash
+pnpm migration:run:test
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+Other available commands:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+- `pnpm migration:show:dev`
+- `pnpm migration:revert:dev`
+- `pnpm migration:show:test`
+- `pnpm migration:revert:test`
 
-## Support
+## Running The App
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Development:
 
-## Stay in touch
+```bash
+pnpm start:dev
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Production build:
 
-## License
+```bash
+pnpm build
+pnpm start:prod
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Testing
+
+Run the main auth E2E suite:
+
+```bash
+pnpm test:e2e
+```
+
+Run throttling-specific E2E tests:
+
+```bash
+pnpm test:e2e:throttle
+```
+
+General test commands:
+
+- `pnpm test`
+- `pnpm test:watch`
+- `pnpm test:cov`
+
+## Swagger
+
+Swagger UI is available at:
+
+```text
+http://localhost:3000/api
+```
+
+What is documented:
+
+- Request DTO schemas and example values
+- Success response schemas
+- Standard auth and validation error response schemas
+- Bearer authentication for protected endpoints
+
+Typical manual flow in Swagger:
+
+1. Call `POST /auth/register` or `POST /auth/login`
+2. Copy the returned `access_token`
+3. Click `Authorize`
+4. Paste the token
+5. Call `GET /auth/me`
+
+## Rate Limiting
+
+The MVP uses `@nestjs/throttler` with a global guard.
+
+Current behavior:
+
+- Global default throttle comes from env
+- Route-specific overrides are applied on `register`, `login`, and `refresh`
+- Throttling tests use a dedicated env file: `.env.test.throttle`
+
+## Notes
+
+- `Try it out` in Swagger uses the real development database
+- Re-registering the same email should return a conflict error
+- Redis is intentionally not part of the MVP and is planned for `v2.0.0`
+
+## Current MVP Status
+
+Implemented:
+
+- Core auth endpoints
+- Refresh token rotation with DB transaction
+- Protected profile endpoint
+- Global and route-level throttling
+- Swagger documentation
