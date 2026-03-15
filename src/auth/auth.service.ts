@@ -1,6 +1,7 @@
 import {
   Inject,
   Injectable,
+  Logger,
   OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -38,6 +39,8 @@ export class AuthService implements OnModuleInit {
   ) {}
 
   private dummyHash = '';
+  private readonly logger = new Logger(AuthService.name);
+
   async onModuleInit() {
     this.dummyHash = await this.secureHasher.hash(
       'authcore_dummy_password_for_timing_equalization_v1',
@@ -52,6 +55,7 @@ export class AuthService implements OnModuleInit {
       passwordHash,
     });
 
+    this.logger.log(`User registered: email=${user.email} userId=${user.id}`);
     return {
       id: user.id,
       email: user.email,
@@ -63,6 +67,9 @@ export class AuthService implements OnModuleInit {
   async login(input: LoginInput): Promise<LoginOutput> {
     const user = await this.usersService.findByEmail(input.email);
     if (!user) {
+      this.logger.warn(
+        `Failed login attempt because user not found: email=${input.email}`,
+      );
       await this.secureHasher.verify(this.dummyHash, input.password);
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -73,6 +80,9 @@ export class AuthService implements OnModuleInit {
     );
 
     if (!check) {
+      this.logger.warn(
+        `Failed login attempt because password mismatch: email=${input.email}`,
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -92,6 +102,7 @@ export class AuthService implements OnModuleInit {
 
     await this.refreshTokenService.create(createRefreshTokenInput);
 
+    this.logger.log(`User logged in: email=${user.email} userId=${user.id}`);
     return {
       access_token: access,
       refresh_token: refresh.token,
@@ -109,6 +120,9 @@ export class AuthService implements OnModuleInit {
 
     const user = await this.usersService.findById(dbToken.userId);
     if (!user) {
+      this.logger.warn(
+        `Failed to refresh token because owner does not exist: userId=${dbToken.userId}`,
+      );
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -136,6 +150,7 @@ export class AuthService implements OnModuleInit {
       refresh_token: refresh.token,
     };
 
+    this.logger.log(`Token refreshed: userId=${user.id}`);
     return tokens;
   }
 
@@ -149,6 +164,7 @@ export class AuthService implements OnModuleInit {
     );
 
     await this.refreshTokenService.revoke(dbToken.id);
+    this.logger.log(`User logged out: userId=${dbToken.userId}`);
     return { message: 'ok' };
   }
 
@@ -162,12 +178,18 @@ export class AuthService implements OnModuleInit {
     );
 
     await this.refreshTokenService.revokeAllByUserId(dbToken.userId);
+    this.logger.log(
+      `User logged out from all sessions: userId=${dbToken.userId}`,
+    );
     return { message: 'ok' };
   }
 
   async getProfile(userId: string): Promise<GetProfileOutput> {
     const user = await this.usersService.findById(userId);
     if (!user) {
+      this.logger.warn(
+        `Failed to get user profile because user not found: userId=${userId}`,
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
     return {
@@ -184,6 +206,7 @@ export class AuthService implements OnModuleInit {
     try {
       return await this.tokenService.verifyRefreshToken(token);
     } catch (_error) {
+      this.logger.warn('Invalid refresh token');
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
@@ -198,11 +221,13 @@ export class AuthService implements OnModuleInit {
       Date.now() >= dbToken.expiresAt.getTime() ||
       dbToken.revokedAt !== null
     ) {
+      this.logger.warn('Invalid refresh token');
       throw new UnauthorizedException('Invalid refresh token');
     }
 
     const isValid = await this.secureHasher.verify(dbToken.tokenHash, token);
     if (!isValid) {
+      this.logger.warn('Invalid refresh token');
       throw new UnauthorizedException('Invalid refresh token');
     }
 

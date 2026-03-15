@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -11,6 +11,8 @@ export class UsersService {
     @InjectRepository(User)
     private readonly repo: Repository<User>,
   ) {}
+
+  private readonly logger = new Logger(UsersService.name);
 
   async createUser(input: CreateUserInput): Promise<User> {
     const user = this.repo.create({
@@ -26,6 +28,9 @@ export class UsersService {
         error.code === '23505' &&
         error.detail.includes('email')
       ) {
+        this.logger.warn(
+          `Registration failed because email already exists: email=${input.email}`,
+        );
         throw new ConflictException('Email already exists');
       }
       throw error;
