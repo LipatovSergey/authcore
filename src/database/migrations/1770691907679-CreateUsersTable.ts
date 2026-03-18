@@ -16,6 +16,17 @@ export class CreateUsersTable1770691907679 implements MigrationInterface {
           { name: 'email', type: 'varchar', isNullable: false, isUnique: true },
           { name: 'password_hash', type: 'varchar', isNullable: false },
           {
+            name: 'is_email_verified',
+            type: 'boolean',
+            isNullable: false,
+            default: 'false',
+          },
+          {
+            name: 'email_verified_at',
+            type: 'timestamptz',
+            isNullable: true,
+          },
+          {
             name: 'created_at',
             type: 'timestamptz',
             isNullable: false,
