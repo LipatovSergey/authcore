@@ -46,6 +46,20 @@ export class CreateRefreshTokensTable1772059965145 implements MigrationInterface
             isNullable: true,
           },
         ],
+        foreignKeys: [
+          {
+            columnNames: ['user_id'],
+            referencedTableName: 'users',
+            referencedColumnNames: ['id'],
+            onDelete: 'CASCADE',
+          },
+        ],
+        indices: [
+          {
+            name: 'IDX_refresh_tokens_user_id',
+            columnNames: ['user_id'],
+          },
+        ],
       }),
     );
   }
