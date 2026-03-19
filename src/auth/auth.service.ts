@@ -6,27 +6,20 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
-import type { LoginInput, LoginOutput } from './interfaces/login.contract';
 import {
   SECURE_HASHER,
   type SecureHasher,
 } from './interfaces/secure-hasher.interface';
-import { RefreshInput, RefreshOutput } from './interfaces/refresh.contract';
-import type {
-  RegisterInput,
-  RegisterOutput,
-} from './interfaces/register.contract';
-import type { RefreshTokenPayload } from './interfaces/token-payloads.interface';
 import { JwtTokensService } from './providers/jwt-tokens.service';
 import type { CreateRefreshTokenInput } from './interfaces/refresh-tokens.contract';
 import { RefreshTokensService } from './providers/refresh-tokens.service';
-import { RefreshToken } from './entities/refresh-token.entity';
-import type { LogoutInput, LogoutOutput } from './interfaces/logout.contract';
-import {
-  LogoutAllInput,
-  LogoutAllOutput,
-} from './interfaces/logout-all.contract';
-import { GetProfileOutput } from './interfaces/get-profile.contract';
+import type { SignedRefreshToken } from './interfaces/signed-refresh-token.interface';
+import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
+import { LoginRequestDto, LoginResponseDto } from './dto/login.dto';
+import { RefreshRequestDto, RefreshResponseDto } from './dto/refresh.dto';
+import { LogoutRequestDto, LogoutResponseDto } from './dto/logout.dto';
+import { LogoutAllRequestDto, LogoutAllResponseDto } from './dto/logoutAll.dto';
+import { GetProfileResponseDto } from './dto/get-profile.dto';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -35,7 +28,7 @@ export class AuthService implements OnModuleInit {
     private readonly secureHasher: SecureHasher,
     private readonly usersService: UsersService,
     private readonly jwtTokensService: JwtTokensService,
-    private readonly refreshTokenService: RefreshTokensService,
+    private readonly refreshTokensService: RefreshTokensService,
   ) {}
 
   private dummyHash = '';
@@ -47,7 +40,19 @@ export class AuthService implements OnModuleInit {
     );
   }
 
-  async register(input: RegisterInput): Promise<RegisterOutput> {
+  private createRefreshTokenInput(
+    signedRefreshToken: SignedRefreshToken,
+    userId: string,
+  ): CreateRefreshTokenInput {
+    return {
+      rawToken: signedRefreshToken.token,
+      jti: signedRefreshToken.jti,
+      userId,
+      expiresAt: signedRefreshToken.expiresAt,
+    };
+  }
+
+  async register(input: RegisterRequestDto): Promise<RegisterResponseDto> {
     const passwordHash = await this.secureHasher.hash(input.password);
 
     const user = await this.usersService.createUser({
@@ -64,7 +69,7 @@ export class AuthService implements OnModuleInit {
     };
   }
 
-  async login(input: LoginInput): Promise<LoginOutput> {
+  async login(input: LoginRequestDto): Promise<LoginResponseDto> {
     const user = await this.usersService.findByEmail(input.email);
     if (!user) {
       this.logger.warn(
@@ -92,15 +97,12 @@ export class AuthService implements OnModuleInit {
       this.jwtTokensService.signRefreshToken(payload.sub),
     ]);
 
-    const refreshTokenHash = await this.secureHasher.hash(refresh.token);
-    const createRefreshTokenInput: CreateRefreshTokenInput = {
-      tokenHash: refreshTokenHash,
-      jti: refresh.jti,
-      userId: payload.sub,
-      expiresAt: refresh.expiresAt,
-    };
+    const createRefreshTokenInput = this.createRefreshTokenInput(
+      refresh,
+      user.id,
+    );
 
-    await this.refreshTokenService.create(createRefreshTokenInput);
+    await this.refreshTokensService.create(createRefreshTokenInput);
 
     this.logger.log(`User logged in: email=${user.email} userId=${user.id}`);
     return {
@@ -109,12 +111,8 @@ export class AuthService implements OnModuleInit {
     };
   }
 
-  async refresh(input: RefreshInput): Promise<RefreshOutput> {
-    const tokenPayload: RefreshTokenPayload =
-      await this.verifyRefreshPayloadOrThrow(input.refresh_token);
-
-    const dbToken = await this.validateRefreshTokenOrThrow(
-      tokenPayload.jti,
+  async refresh(input: RefreshRequestDto): Promise<RefreshResponseDto> {
+    const dbToken = await this.refreshTokensService.validateOrThrow(
       input.refresh_token,
     );
 
@@ -132,15 +130,12 @@ export class AuthService implements OnModuleInit {
       this.jwtTokensService.signRefreshToken(payload.sub),
     ]);
 
-    const refreshTokenHash = await this.secureHasher.hash(refresh.token);
-    const createRefreshTokenInput: CreateRefreshTokenInput = {
-      tokenHash: refreshTokenHash,
-      jti: refresh.jti,
-      userId: payload.sub,
-      expiresAt: refresh.expiresAt,
-    };
+    const createRefreshTokenInput = this.createRefreshTokenInput(
+      refresh,
+      user.id,
+    );
 
-    await this.refreshTokenService.rotate({
+    await this.refreshTokensService.rotate({
       oldTokenId: dbToken.id,
       newTokenInput: createRefreshTokenInput,
     });
@@ -154,37 +149,29 @@ export class AuthService implements OnModuleInit {
     return tokens;
   }
 
-  async logout(input: LogoutInput): Promise<LogoutOutput> {
-    const tokenPayload: RefreshTokenPayload =
-      await this.verifyRefreshPayloadOrThrow(input.refresh_token);
-
-    const dbToken = await this.validateRefreshTokenOrThrow(
-      tokenPayload.jti,
+  async logout(input: LogoutRequestDto): Promise<LogoutResponseDto> {
+    const dbToken = await this.refreshTokensService.validateOrThrow(
       input.refresh_token,
     );
 
-    await this.refreshTokenService.revoke(dbToken.id);
+    await this.refreshTokensService.revoke(dbToken.id);
     this.logger.log(`User logged out: userId=${dbToken.userId}`);
     return { message: 'ok' };
   }
 
-  async logoutAll(input: LogoutAllInput): Promise<LogoutAllOutput> {
-    const tokenPayload: RefreshTokenPayload =
-      await this.verifyRefreshPayloadOrThrow(input.refresh_token);
-
-    const dbToken = await this.validateRefreshTokenOrThrow(
-      tokenPayload.jti,
+  async logoutAll(input: LogoutAllRequestDto): Promise<LogoutAllResponseDto> {
+    const dbToken = await this.refreshTokensService.validateOrThrow(
       input.refresh_token,
     );
 
-    await this.refreshTokenService.revokeAllByUserId(dbToken.userId);
+    await this.refreshTokensService.revokeAllByUserId(dbToken.userId);
     this.logger.log(
       `User logged out from all sessions: userId=${dbToken.userId}`,
     );
     return { message: 'ok' };
   }
 
-  async getProfile(userId: string): Promise<GetProfileOutput> {
+  async getProfile(userId: string): Promise<GetProfileResponseDto> {
     const user = await this.usersService.findById(userId);
     if (!user) {
       this.logger.warn(
@@ -198,39 +185,5 @@ export class AuthService implements OnModuleInit {
       created_at: user.createdAt,
       updated_at: user.updatedAt,
     };
-  }
-
-  private async verifyRefreshPayloadOrThrow(
-    token: string,
-  ): Promise<RefreshTokenPayload> {
-    try {
-      return await this.jwtTokensService.verifyRefreshToken(token);
-    } catch (_error) {
-      this.logger.warn('Invalid refresh token');
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-  }
-
-  private async validateRefreshTokenOrThrow(
-    jti: string,
-    token: string,
-  ): Promise<RefreshToken> {
-    const dbToken = await this.refreshTokenService.findByJti(jti);
-    if (
-      !dbToken ||
-      Date.now() >= dbToken.expiresAt.getTime() ||
-      dbToken.revokedAt !== null
-    ) {
-      this.logger.warn('Invalid refresh token');
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-
-    const isValid = await this.secureHasher.verify(dbToken.tokenHash, token);
-    if (!isValid) {
-      this.logger.warn('Invalid refresh token');
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-
-    return dbToken;
   }
 }

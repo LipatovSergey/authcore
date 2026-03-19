@@ -8,12 +8,12 @@ import {
   Request,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
-import { RegisterOutput } from './interfaces/register.contract';
-import { LoginDto } from './dto/login.dto';
-import { RefreshDto } from './dto/refresh.dto';
-import { LogoutDto } from './dto/logout.dto';
-import { LogoutAllDto } from './dto/logoutAll.dto';
+import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
+import { LoginRequestDto, LoginResponseDto } from './dto/login.dto';
+import { RefreshRequestDto, RefreshResponseDto } from './dto/refresh.dto';
+import { LogoutRequestDto, LogoutResponseDto } from './dto/logout.dto';
+import { LogoutAllRequestDto, LogoutAllResponseDto } from './dto/logoutAll.dto';
+import { GetProfileResponseDto } from './dto/get-profile.dto';
 import { AuthGuard } from './auth.guard';
 import type { AuthenticatedRequest } from './interfaces/authenticated-request.interface';
 import { Throttle } from '@nestjs/throttler';
@@ -29,12 +29,6 @@ import {
 } from '@nestjs/swagger';
 import {
   ConflictErrorResponseDto,
-  GetProfileResponseDto,
-  LoginResponseDto,
-  LogoutAllResponseDto,
-  LogoutResponseDto,
-  RefreshResponseDto,
-  RegisterResponseDto,
   UnauthorizedErrorResponseDto,
   ValidationErrorResponseDto,
 } from './dto/auth-response.dto';
@@ -59,8 +53,10 @@ export class AuthController {
   })
   @Throttle({ default: { limit: 5, ttl: 600000 } })
   @Post('register')
-  register(@Body() registerDto: RegisterDto): Promise<RegisterOutput> {
-    return this.authService.register(registerDto);
+  register(
+    @Body() registerRequestDto: RegisterRequestDto,
+  ): Promise<RegisterResponseDto> {
+    return this.authService.register(registerRequestDto);
   }
 
   @ApiOperation({ summary: 'Log in with email and password' })
@@ -79,8 +75,8 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   @HttpCode(200)
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  login(@Body() loginRequestDto: LoginRequestDto) {
+    return this.authService.login(loginRequestDto);
   }
 
   @ApiOperation({ summary: 'Refresh access and refresh tokens' })
@@ -99,8 +95,8 @@ export class AuthController {
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post('refresh')
   @HttpCode(200)
-  refresh(@Body() refreshDto: RefreshDto) {
-    return this.authService.refresh(refreshDto);
+  refresh(@Body() refreshRequestDto: RefreshRequestDto) {
+    return this.authService.refresh(refreshRequestDto);
   }
 
   @ApiOperation({ summary: 'Log out from current session' })
@@ -118,8 +114,8 @@ export class AuthController {
   })
   @Post('logout')
   @HttpCode(200)
-  logout(@Body() logoutDto: LogoutDto) {
-    return this.authService.logout(logoutDto);
+  logout(@Body() logoutRequestDto: LogoutRequestDto) {
+    return this.authService.logout(logoutRequestDto);
   }
 
   @ApiOperation({ summary: 'Log out from all sessions' })
@@ -137,8 +133,8 @@ export class AuthController {
   })
   @Post('logout-all')
   @HttpCode(200)
-  logoutAll(@Body() logoutAllDto: LogoutAllDto) {
-    return this.authService.logoutAll(logoutAllDto);
+  logoutAll(@Body() logoutAllRequestDto: LogoutAllRequestDto) {
+    return this.authService.logoutAll(logoutAllRequestDto);
   }
 
   @ApiBearerAuth('bearer')
