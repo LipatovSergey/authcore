@@ -1,5 +1,5 @@
 export interface CreateRefreshTokenInput {
-  tokenHash: string;
+  rawToken: string;
   jti: string;
   userId: string;
   expiresAt: Date;

@@ -6,6 +6,7 @@ import type {
   AccessTokenPayload,
   RefreshTokenPayload,
 } from '../interfaces/token-payloads.interface';
+import { SignedRefreshToken } from '../interfaces/signed-refresh-token.interface';
 
 type DecodedWithExp = {
   exp: number;
@@ -35,7 +36,7 @@ export class JwtTokensService {
     });
   }
 
-  async signRefreshToken(sub: string) {
+  async signRefreshToken(sub: string): Promise<SignedRefreshToken> {
     const jti = randomUUID();
     const payload: RefreshTokenPayload = { sub, jti };
     const token = await this.jwtService.signAsync(payload, {
