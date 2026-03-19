@@ -15,7 +15,7 @@ import { LogoutRequestDto, LogoutResponseDto } from './dto/logout.dto';
 import { LogoutAllRequestDto, LogoutAllResponseDto } from './dto/logoutAll.dto';
 import { GetProfileResponseDto } from './dto/get-profile.dto';
 import { AuthGuard } from './auth.guard';
-import type { AuthenticatedRequest } from './interfaces/authenticated-request.interface';
+import type { AuthenticatedRequest } from './types/authenticated-request';
 import { Throttle } from '@nestjs/throttler';
 import {
   ApiBadRequestResponse,

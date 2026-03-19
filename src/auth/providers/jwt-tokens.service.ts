@@ -5,8 +5,8 @@ import { randomUUID } from 'node:crypto';
 import type {
   AccessTokenPayload,
   RefreshTokenPayload,
-} from '../interfaces/token-payloads.interface';
-import { SignedRefreshToken } from '../interfaces/signed-refresh-token.interface';
+} from '../types/token-payloads';
+import type { SignedRefreshToken } from '../types/signed-refresh-token';
 
 type DecodedWithExp = {
   exp: number;

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
-import { AccessTokenPayload } from './interfaces/token-payloads.interface';
+import type { AccessTokenPayload } from './types/token-payloads';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()

@@ -15,7 +15,7 @@ import {
   SECURE_HASHER,
   type SecureHasher,
 } from '../interfaces/secure-hasher.interface';
-import { RefreshTokenPayload } from '../interfaces/token-payloads.interface';
+import type { RefreshTokenPayload } from '../types/token-payloads';
 import { JwtTokensService } from './jwt-tokens.service';
 
 @Injectable()
