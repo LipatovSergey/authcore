@@ -6,10 +6,10 @@ import { Argon2PasswordHasher } from './providers/argon2-secure-hasher.service';
 import { SECURE_HASHER } from './interfaces/secure-hasher.interface';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { TokenService } from './providers/token.service';
+import { JwtTokensService } from './providers/jwt-tokens.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RefreshToken } from './entities/refresh-token.entity';
-import { RefreshTokenService } from './providers/refresh-tokens.service';
+import { RefreshTokensService } from './providers/refresh-tokens.service';
 
 @Module({
   imports: [
@@ -29,8 +29,8 @@ import { RefreshTokenService } from './providers/refresh-tokens.service';
   controllers: [AuthController],
   providers: [
     AuthService,
-    TokenService,
-    RefreshTokenService,
+    JwtTokensService,
+    RefreshTokensService,
     { provide: SECURE_HASHER, useClass: Argon2PasswordHasher },
   ],
 })

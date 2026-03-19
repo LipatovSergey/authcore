@@ -17,9 +17,9 @@ import type {
   RegisterOutput,
 } from './interfaces/register.contract';
 import type { RefreshTokenPayload } from './interfaces/token-payloads.interface';
-import { TokenService } from './providers/token.service';
+import { JwtTokensService } from './providers/jwt-tokens.service';
 import type { CreateRefreshTokenInput } from './interfaces/refresh-tokens.contract';
-import { RefreshTokenService } from './providers/refresh-tokens.service';
+import { RefreshTokensService } from './providers/refresh-tokens.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 import type { LogoutInput, LogoutOutput } from './interfaces/logout.contract';
 import {
@@ -34,8 +34,8 @@ export class AuthService implements OnModuleInit {
     @Inject(SECURE_HASHER)
     private readonly secureHasher: SecureHasher,
     private readonly usersService: UsersService,
-    private readonly tokenService: TokenService,
-    private readonly refreshTokenService: RefreshTokenService,
+    private readonly jwtTokensService: JwtTokensService,
+    private readonly refreshTokenService: RefreshTokensService,
   ) {}
 
   private dummyHash = '';
@@ -88,8 +88,8 @@ export class AuthService implements OnModuleInit {
 
     const payload = { sub: user.id, email: user.email };
     const [access, refresh] = await Promise.all([
-      this.tokenService.signAccessToken(payload),
-      this.tokenService.signRefreshToken(payload.sub),
+      this.jwtTokensService.signAccessToken(payload),
+      this.jwtTokensService.signRefreshToken(payload.sub),
     ]);
 
     const refreshTokenHash = await this.secureHasher.hash(refresh.token);
@@ -128,8 +128,8 @@ export class AuthService implements OnModuleInit {
 
     const payload = { sub: user.id, email: user.email };
     const [access, refresh] = await Promise.all([
-      this.tokenService.signAccessToken(payload),
-      this.tokenService.signRefreshToken(payload.sub),
+      this.jwtTokensService.signAccessToken(payload),
+      this.jwtTokensService.signRefreshToken(payload.sub),
     ]);
 
     const refreshTokenHash = await this.secureHasher.hash(refresh.token);
@@ -204,7 +204,7 @@ export class AuthService implements OnModuleInit {
     token: string,
   ): Promise<RefreshTokenPayload> {
     try {
-      return await this.tokenService.verifyRefreshToken(token);
+      return await this.jwtTokensService.verifyRefreshToken(token);
     } catch (_error) {
       this.logger.warn('Invalid refresh token');
       throw new UnauthorizedException('Invalid refresh token');

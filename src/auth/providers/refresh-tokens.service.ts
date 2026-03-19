@@ -8,7 +8,7 @@ import {
 } from '../interfaces/refresh-tokens.contract';
 
 @Injectable()
-export class RefreshTokenService {
+export class RefreshTokensService {
   constructor(
     @InjectRepository(RefreshToken)
     private readonly repo: Repository<RefreshToken>,
