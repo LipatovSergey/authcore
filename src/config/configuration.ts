@@ -24,4 +24,8 @@ export default () => ({
     limit: Number(process.env.THROTTLE_DEFAULT_LIMIT),
     ttlMs: Number(process.env.THROTTLE_DEFAULT_TTL_MS),
   },
+
+  emailVerificationToken: {
+    ttlMs: Number(process.env.EMAIL_VERIFICATION_TOKEN_TTL_MS),
+  },
 });

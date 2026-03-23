@@ -6,7 +6,7 @@ import {
 } from 'typeorm';
 
 @Entity({ name: 'email_verification_tokens' })
-export class VerifyEmailToken {
+export class EmailVerificationToken {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -23,7 +23,7 @@ export class VerifyEmailToken {
   expiresAt: Date;
 
   @Column({ name: 'revoked_at', type: 'timestamptz', nullable: true })
-  revokedAt: Date;
+  revokedAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
