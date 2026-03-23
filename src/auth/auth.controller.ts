@@ -38,6 +38,7 @@ import {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Register
   @ApiOperation({ summary: 'Register a new user' })
   @ApiCreatedResponse({
     description: 'User registered successfully',
@@ -59,6 +60,7 @@ export class AuthController {
     return this.authService.register(registerRequestDto);
   }
 
+  // Login
   @ApiOperation({ summary: 'Log in with email and password' })
   @ApiOkResponse({
     description: 'Tokens returned successfully',
@@ -79,6 +81,7 @@ export class AuthController {
     return this.authService.login(loginRequestDto);
   }
 
+  // Refresh tokens
   @ApiOperation({ summary: 'Refresh access and refresh tokens' })
   @ApiOkResponse({
     description: 'Tokens refreshed successfully',
@@ -99,6 +102,7 @@ export class AuthController {
     return this.authService.refresh(refreshRequestDto);
   }
 
+  // Logout current session
   @ApiOperation({ summary: 'Log out from current session' })
   @ApiOkResponse({
     description: 'Current refresh token revoked successfully',
@@ -118,6 +122,7 @@ export class AuthController {
     return this.authService.logout(logoutRequestDto);
   }
 
+  // Logout all sessions
   @ApiOperation({ summary: 'Log out from all sessions' })
   @ApiOkResponse({
     description: 'All user refresh tokens revoked successfully',
@@ -137,6 +142,7 @@ export class AuthController {
     return this.authService.logoutAll(logoutAllRequestDto);
   }
 
+  // Get current user profile
   @ApiBearerAuth('bearer')
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiOkResponse({

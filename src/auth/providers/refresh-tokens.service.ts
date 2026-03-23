@@ -10,7 +10,7 @@ import { IsNull, MoreThan, Repository } from 'typeorm';
 import {
   CreateRefreshTokenInput,
   RotateRefreshTokenInput,
-} from '../interfaces/refresh-tokens.contract';
+} from '../types/refresh-tokens';
 import {
   SECURE_HASHER,
   type SecureHasher,

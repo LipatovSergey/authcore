@@ -11,7 +11,7 @@ import {
   type SecureHasher,
 } from './interfaces/secure-hasher.interface';
 import { JwtTokensService } from './providers/jwt-tokens.service';
-import type { CreateRefreshTokenInput } from './interfaces/refresh-tokens.contract';
+import type { CreateRefreshTokenInput } from './types/refresh-tokens';
 import { RefreshTokensService } from './providers/refresh-tokens.service';
 import type { SignedRefreshToken } from './types/signed-refresh-token';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
@@ -31,9 +31,11 @@ export class AuthService implements OnModuleInit {
     private readonly refreshTokensService: RefreshTokensService,
   ) {}
 
-  private dummyHash = '';
   private readonly logger = new Logger(AuthService.name);
 
+  // Used for timing equalization when login fails because the user does not exist.
+  private dummyHash = '';
+  // Generate the dummy hash on startup so login requests do not recompute it.
   async onModuleInit() {
     this.dummyHash = await this.secureHasher.hash(
       'authcore_dummy_password_for_timing_equalization_v1',
@@ -91,10 +93,12 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload = { sub: user.id, email: user.email };
     const [access, refresh] = await Promise.all([
-      this.jwtTokensService.signAccessToken(payload),
-      this.jwtTokensService.signRefreshToken(payload.sub),
+      this.jwtTokensService.signAccessToken({
+        sub: user.id,
+        email: user.email,
+      }),
+      this.jwtTokensService.signRefreshToken(user.id),
     ]);
 
     const createRefreshTokenInput = this.createRefreshTokenInput(
