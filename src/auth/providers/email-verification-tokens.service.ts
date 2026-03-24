@@ -5,9 +5,8 @@ import {
   SECURE_HASHER,
   type SecureHasher,
 } from '../interfaces/secure-hasher.interface';
-import { ConfigService } from '@nestjs/config';
-import { randomBytes } from 'node:crypto';
 import { IsNull, Repository } from 'typeorm';
+import { CreateEmailVerificationTokenInput } from '../types/email-verification-tokens';
 
 @Injectable()
 export class EmailVerificationTokensService {
@@ -16,19 +15,14 @@ export class EmailVerificationTokensService {
     private readonly repo: Repository<EmailVerificationToken>,
     @Inject(SECURE_HASHER)
     private readonly secureHasher: SecureHasher,
-    private readonly config: ConfigService,
   ) {}
 
-  async create(userId: string) {
-    const now = new Date();
-    const ttlMs = this.config.getOrThrow<number>(
-      'emailVerificationToken.ttlMs',
-    );
-    const rawToken = randomBytes(32).toString('hex');
+  async create(input: CreateEmailVerificationTokenInput): Promise<void> {
+    const { rawToken, jti, userId, expiresAt } = input;
     const tokenHash = await this.secureHasher.hash(rawToken);
-    const expiresAt = new Date(now.getTime() + ttlMs);
     const tokenRecord = this.repo.create({
       tokenHash,
+      jti,
       userId,
       expiresAt,
     });
@@ -37,11 +31,9 @@ export class EmailVerificationTokensService {
       const txRepo = manager.getRepository(EmailVerificationToken);
       await txRepo.update(
         { userId, revokedAt: IsNull(), usedAt: IsNull() },
-        { revokedAt: now },
+        { revokedAt: new Date() },
       );
       await txRepo.save(tokenRecord);
     });
-
-    return rawToken;
   }
 }
