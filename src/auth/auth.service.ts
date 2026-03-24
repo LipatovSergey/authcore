@@ -13,7 +13,7 @@ import {
 import { JwtTokensService } from './providers/jwt-tokens.service';
 import type { CreateRefreshTokenInput } from './types/refresh-tokens';
 import { RefreshTokensService } from './providers/refresh-tokens.service';
-import type { SignedRefreshToken } from './types/signed-refresh-token';
+import type { SignedRefreshToken } from './types/jwt-tokens';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
 import { LoginRequestDto, LoginResponseDto } from './dto/login.dto';
 import { RefreshRequestDto, RefreshResponseDto } from './dto/refresh.dto';
