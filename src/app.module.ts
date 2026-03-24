@@ -27,6 +27,8 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
         JWT_REFRESH_SECRET: Joi.string().required(),
         JWT_ACCESS_EXPIRES_IN: Joi.string().required(),
         JWT_REFRESH_EXPIRES_IN: Joi.string().required(),
+        JWT_EMAIL_VERIFICATION_SECRET: Joi.string().required(),
+        JWT_EMAIL_VERIFICATION_EXPIRES_IN: Joi.string().required(),
 
         ARGON2_MEMORY_COST: Joi.number().integer().positive().required(),
         ARGON2_TIME_COST: Joi.number().integer().positive().required(),
@@ -34,11 +36,6 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
 
         THROTTLE_DEFAULT_LIMIT: Joi.number().integer().positive().required(),
         THROTTLE_DEFAULT_TTL_MS: Joi.number().integer().positive().required(),
-
-        EMAIL_VERIFICATION_TOKEN_TTL_MS: Joi.number()
-          .integer()
-          .positive()
-          .required(),
 
         PORT: Joi.number().integer().positive().optional(),
         NODE_ENV: Joi.string().optional(),

@@ -19,9 +19,14 @@ export class CreateEmailVerificationTokensTable1773855543870 implements Migratio
             isNullable: false,
           },
           {
-            name: 'token_hash',
+            name: 'jti',
             type: 'varchar',
             isUnique: true,
+            isNullable: false,
+          },
+          {
+            name: 'token_hash',
+            type: 'varchar',
             isNullable: false,
           },
           {

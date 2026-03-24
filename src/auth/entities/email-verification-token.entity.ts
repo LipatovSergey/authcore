@@ -13,6 +13,9 @@ export class EmailVerificationToken {
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
+  @Column({ unique: true })
+  jti: string;
+
   @Column({ name: 'token_hash' })
   tokenHash: string;
 

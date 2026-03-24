@@ -12,6 +12,8 @@ export default () => ({
     refreshSecret: process.env.JWT_REFRESH_SECRET,
     accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN,
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+    emailVerificationSecret: process.env.JWT_EMAIL_VERIFICATION_SECRET,
+    emailVerificationExpiresIn: process.env.JWT_EMAIL_VERIFICATION_EXPIRES_IN,
   },
 
   argon2: {
@@ -23,9 +25,5 @@ export default () => ({
   throttlerDefault: {
     limit: Number(process.env.THROTTLE_DEFAULT_LIMIT),
     ttlMs: Number(process.env.THROTTLE_DEFAULT_TTL_MS),
-  },
-
-  emailVerificationToken: {
-    ttlMs: Number(process.env.EMAIL_VERIFICATION_TOKEN_TTL_MS),
   },
 });
