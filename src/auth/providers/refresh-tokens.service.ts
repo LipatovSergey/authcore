@@ -64,7 +64,7 @@ export class RefreshTokensService {
     return dbToken;
   }
 
-  async create(input: CreateRefreshTokenInput): Promise<RefreshToken> {
+  async create(input: CreateRefreshTokenInput): Promise<void> {
     const tokenHash = await this.secureHasher.hash(input.rawToken);
     const token = this.repo.create({
       tokenHash,
@@ -73,7 +73,7 @@ export class RefreshTokensService {
       expiresAt: input.expiresAt,
     });
 
-    return await this.repo.save(token);
+    await this.repo.save(token);
   }
 
   async validateOrThrow(token: string): Promise<RefreshToken> {
