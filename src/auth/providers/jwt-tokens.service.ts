@@ -5,8 +5,9 @@ import { randomUUID } from 'node:crypto';
 import type {
   AccessTokenPayload,
   RefreshTokenPayload,
-} from '../types/token-payloads';
-import type { SignedRefreshToken } from '../types/signed-refresh-token';
+  EmailVerificationTokenPayload,
+  SignedRefreshToken,
+} from '../types/jwt-tokens';
 
 type DecodedWithExp = {
   exp: number;
@@ -33,6 +34,29 @@ export class JwtTokensService {
       expiresIn: this.config.getOrThrow<string>(
         'jwt.accessExpiresIn',
       ) as JwtSignOptions['expiresIn'],
+    });
+  }
+
+  async signEmailVerificationToken(sub: string) {
+    const jti = randomUUID();
+    const payload = { sub, jti };
+    const token = await this.jwtService.signAsync(payload, {
+      secret: this.config.getOrThrow<string>('jwt.emailVerificationSecret'),
+      expiresIn: this.config.getOrThrow<string>(
+        'jwt.emailVerificationExpiresIn',
+      ) as JwtSignOptions['expiresIn'],
+    });
+    const decoded: unknown = this.jwtService.decode(token);
+    if (!hasNumericExp(decoded)) {
+      throw new Error('Failed to decode email verification token');
+    }
+    const expiresAt = new Date(decoded.exp * 1000);
+    return { token, jti, expiresAt };
+  }
+
+  async verifyEmailVerificationToken(token: string) {
+    return this.jwtService.verifyAsync<EmailVerificationTokenPayload>(token, {
+      secret: this.config.getOrThrow<string>('jwt.emailVerificationSecret'),
     });
   }
 
