@@ -40,18 +40,18 @@ export class JwtTokensService {
   async signEmailVerificationToken(sub: string) {
     const jti = randomUUID();
     const payload = { sub, jti };
-    const token = await this.jwtService.signAsync(payload, {
+    const rawToken = await this.jwtService.signAsync(payload, {
       secret: this.config.getOrThrow<string>('jwt.emailVerificationSecret'),
       expiresIn: this.config.getOrThrow<string>(
         'jwt.emailVerificationExpiresIn',
       ) as JwtSignOptions['expiresIn'],
     });
-    const decoded: unknown = this.jwtService.decode(token);
+    const decoded: unknown = this.jwtService.decode(rawToken);
     if (!hasNumericExp(decoded)) {
       throw new Error('Failed to decode email verification token');
     }
     const expiresAt = new Date(decoded.exp * 1000);
-    return { token, jti, expiresAt };
+    return { rawToken, jti, expiresAt };
   }
 
   async verifyEmailVerificationToken(token: string) {
@@ -63,18 +63,18 @@ export class JwtTokensService {
   async signRefreshToken(sub: string): Promise<SignedRefreshToken> {
     const jti = randomUUID();
     const payload: RefreshTokenPayload = { sub, jti };
-    const token = await this.jwtService.signAsync(payload, {
+    const rawToken = await this.jwtService.signAsync(payload, {
       secret: this.config.getOrThrow<string>('jwt.refreshSecret'),
       expiresIn: this.config.getOrThrow<string>(
         'jwt.refreshExpiresIn',
       ) as JwtSignOptions['expiresIn'],
     });
-    const decoded: unknown = this.jwtService.decode(token);
+    const decoded: unknown = this.jwtService.decode(rawToken);
     if (!hasNumericExp(decoded)) {
       throw new Error('Failed to decode refresh token');
     }
     const expiresAt = new Date(decoded.exp * 1000);
-    return { token, jti, expiresAt };
+    return { rawToken, jti, expiresAt };
   }
 
   async verifyRefreshToken(token: string) {

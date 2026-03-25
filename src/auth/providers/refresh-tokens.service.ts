@@ -41,27 +41,30 @@ export class RefreshTokensService {
     }
   }
 
-  private async validateRefreshTokenOrThrow(
+  private async validateTokenOrThrow(
     jti: string,
     token: string,
   ): Promise<RefreshToken> {
-    const dbToken = await this.findByJti(jti);
+    const tokenInstance = await this.findByJti(jti);
     if (
-      !dbToken ||
-      Date.now() >= dbToken.expiresAt.getTime() ||
-      dbToken.revokedAt !== null
+      !tokenInstance ||
+      Date.now() >= tokenInstance.expiresAt.getTime() ||
+      tokenInstance.revokedAt !== null
     ) {
       this.logger.warn('Invalid refresh token');
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const isValid = await this.secureHasher.verify(dbToken.tokenHash, token);
+    const isValid = await this.secureHasher.verify(
+      tokenInstance.tokenHash,
+      token,
+    );
     if (!isValid) {
       this.logger.warn('Invalid refresh token');
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    return dbToken;
+    return tokenInstance;
   }
 
   async create(input: CreateRefreshTokenInput): Promise<void> {
@@ -78,7 +81,7 @@ export class RefreshTokensService {
 
   async validateOrThrow(token: string): Promise<RefreshToken> {
     const { jti } = await this.verifyRefreshPayloadOrThrow(token);
-    const dbToken = await this.validateRefreshTokenOrThrow(jti, token);
+    const dbToken = await this.validateTokenOrThrow(jti, token);
     return dbToken;
   }
 

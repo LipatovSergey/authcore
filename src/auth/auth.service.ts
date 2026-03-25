@@ -11,15 +11,14 @@ import {
   type SecureHasher,
 } from './interfaces/secure-hasher.interface';
 import { JwtTokensService } from './providers/jwt-tokens.service';
-import type { CreateRefreshTokenInput } from './types/refresh-tokens';
 import { RefreshTokensService } from './providers/refresh-tokens.service';
-import type { SignedRefreshToken } from './types/jwt-tokens';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
 import { LoginRequestDto, LoginResponseDto } from './dto/login.dto';
 import { RefreshRequestDto, RefreshResponseDto } from './dto/refresh.dto';
 import { LogoutRequestDto, LogoutResponseDto } from './dto/logout.dto';
 import { LogoutAllRequestDto, LogoutAllResponseDto } from './dto/logoutAll.dto';
 import { GetProfileResponseDto } from './dto/get-profile.dto';
+import { EmailVerificationTokensService } from './providers/email-verification-tokens.service';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -29,6 +28,7 @@ export class AuthService implements OnModuleInit {
     private readonly usersService: UsersService,
     private readonly jwtTokensService: JwtTokensService,
     private readonly refreshTokensService: RefreshTokensService,
+    private readonly emailVerificationTokensService: EmailVerificationTokensService,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -40,18 +40,6 @@ export class AuthService implements OnModuleInit {
     this.dummyHash = await this.secureHasher.hash(
       'authcore_dummy_password_for_timing_equalization_v1',
     );
-  }
-
-  private createRefreshTokenInput(
-    signedRefreshToken: SignedRefreshToken,
-    userId: string,
-  ): CreateRefreshTokenInput {
-    return {
-      rawToken: signedRefreshToken.token,
-      jti: signedRefreshToken.jti,
-      userId,
-      expiresAt: signedRefreshToken.expiresAt,
-    };
   }
 
   async register(input: RegisterRequestDto): Promise<RegisterResponseDto> {
@@ -93,7 +81,7 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const [access, refresh] = await Promise.all([
+    const [rawAccessToken, signedRefreshToken] = await Promise.all([
       this.jwtTokensService.signAccessToken({
         sub: user.id,
         email: user.email,
@@ -101,17 +89,15 @@ export class AuthService implements OnModuleInit {
       this.jwtTokensService.signRefreshToken(user.id),
     ]);
 
-    const createRefreshTokenInput = this.createRefreshTokenInput(
-      refresh,
-      user.id,
-    );
-
-    await this.refreshTokensService.create(createRefreshTokenInput);
+    await this.refreshTokensService.create({
+      ...signedRefreshToken,
+      userId: user.id,
+    });
 
     this.logger.log(`User logged in: email=${user.email} userId=${user.id}`);
     return {
-      access_token: access,
-      refresh_token: refresh.token,
+      access_token: rawAccessToken,
+      refresh_token: signedRefreshToken.rawToken,
     };
   }
 
@@ -128,29 +114,24 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const payload = { sub: user.id, email: user.email };
-    const [access, refresh] = await Promise.all([
-      this.jwtTokensService.signAccessToken(payload),
-      this.jwtTokensService.signRefreshToken(payload.sub),
+    const [rawAccessToken, signedRefreshToken] = await Promise.all([
+      this.jwtTokensService.signAccessToken({
+        sub: user.id,
+        email: user.email,
+      }),
+      this.jwtTokensService.signRefreshToken(user.id),
     ]);
 
-    const createRefreshTokenInput = this.createRefreshTokenInput(
-      refresh,
-      user.id,
-    );
-
-    await this.refreshTokensService.rotate({
-      oldTokenId: dbToken.id,
-      newTokenInput: createRefreshTokenInput,
+    await this.refreshTokensService.create({
+      ...signedRefreshToken,
+      userId: user.id,
     });
 
-    const tokens = {
-      access_token: access,
-      refresh_token: refresh.token,
-    };
-
     this.logger.log(`Token refreshed: userId=${user.id}`);
-    return tokens;
+    return {
+      access_token: rawAccessToken,
+      refresh_token: signedRefreshToken.rawToken,
+    };
   }
 
   async logout(input: LogoutRequestDto): Promise<LogoutResponseDto> {

@@ -14,13 +14,13 @@ export interface EmailVerificationTokenPayload {
 }
 
 export interface SignedRefreshToken {
-  token: string;
+  rawToken: string;
   jti: string;
   expiresAt: Date;
 }
 
 export interface SignedEmailVerificationToken {
-  token: string;
+  rawToken: string;
   jti: string;
   expiresAt: Date;
 }
