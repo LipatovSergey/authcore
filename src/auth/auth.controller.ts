@@ -6,6 +6,7 @@ import {
   Get,
   UseGuards,
   Request,
+  Header,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
@@ -159,6 +160,7 @@ export class AuthController {
   })
   @UseGuards(AuthGuard)
   @Get('me')
+  @Header('Cache-Control', 'no-store')
   getProfile(@Request() req: AuthenticatedRequest) {
     return this.authService.getProfile(req.payload.sub);
   }
