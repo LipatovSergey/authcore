@@ -1,4 +1,9 @@
-import { Injectable, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EmailVerificationToken } from '../entities/email-verification-token.entity';
 import {
@@ -7,6 +12,8 @@ import {
 } from '../interfaces/secure-hasher.interface';
 import { IsNull, Repository } from 'typeorm';
 import { CreateEmailVerificationTokenInput } from '../types/email-verification-tokens';
+import { JwtTokensService } from './jwt-tokens.service';
+import { EmailVerificationTokenPayload } from '../types/jwt-tokens';
 
 @Injectable()
 export class EmailVerificationTokensService {
@@ -15,7 +22,25 @@ export class EmailVerificationTokensService {
     private readonly repo: Repository<EmailVerificationToken>,
     @Inject(SECURE_HASHER)
     private readonly secureHasher: SecureHasher,
+    private readonly jwtTokenService: JwtTokensService,
   ) {}
+
+  private readonly logger = new Logger(EmailVerificationTokensService.name);
+
+  private async verifyPayloadOrThrow(
+    rawToken: string,
+  ): Promise<EmailVerificationTokenPayload> {
+    try {
+      return this.jwtTokenService.verifyEmailVerificationToken(rawToken);
+    } catch (_error) {
+      this.logger.warn('Invalid email verification token');
+      throw new UnauthorizedException('Invalid email verification token');
+    }
+  }
+
+  private async findByJti(jti: string): Promise<EmailVerificationToken | null> {
+    return this.repo.findOneBy({ jti });
+  }
 
   async create(input: CreateEmailVerificationTokenInput): Promise<void> {
     const { rawToken, jti, userId, expiresAt } = input;
@@ -35,5 +60,41 @@ export class EmailVerificationTokensService {
       );
       await txRepo.save(tokenRecord);
     });
+  }
+
+  async validateOrThrow(rawToken: string) {
+    // verify token via jwtTokenService and get payload
+    const { jti } = await this.verifyPayloadOrThrow(rawToken);
+    // find token in DB with jti from payload
+    const tokenInstance = await this.findByJti(jti);
+    // check if usedAt === null, revokedAt === null, expiresAt > now
+    if (
+      !tokenInstance ||
+      Date.now() >= tokenInstance.expiresAt.getTime() ||
+      tokenInstance.usedAt !== null ||
+      tokenInstance.revokedAt !== null
+    ) {
+      this.logger.warn('Invalid email verification token');
+      throw new UnauthorizedException('Invalid email verification token');
+    }
+    // verify token via hasher
+    const isValid = await this.secureHasher.verify(
+      tokenInstance.tokenHash,
+      rawToken,
+    );
+    if (!isValid) {
+      this.logger.warn('Invalid email verification token');
+      throw new UnauthorizedException('Invalid email verification token');
+    }
+
+    return tokenInstance;
+  }
+
+  async markAsUsed(id: string): Promise<void> {
+    // find tokenInstance in DB and set usedAt field to Date now
+    const { affected } = await this.repo.update(id, { usedAt: new Date() });
+    if (affected === 0) {
+      throw new Error('Failed to mark email verification token as used');
+    }
   }
 }
