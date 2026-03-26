@@ -10,6 +10,8 @@ import { JwtTokensService } from './providers/jwt-tokens.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { RefreshTokensService } from './providers/refresh-tokens.service';
+import { EmailVerificationTokensService } from './providers/email-verification-tokens.service';
+import { EmailVerificationToken } from './entities/email-verification-token.entity';
 
 @Module({
   imports: [
@@ -24,13 +26,14 @@ import { RefreshTokensService } from './providers/refresh-tokens.service';
         },
       }),
     }),
-    TypeOrmModule.forFeature([RefreshToken]),
+    TypeOrmModule.forFeature([RefreshToken, EmailVerificationToken]),
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
     JwtTokensService,
     RefreshTokensService,
+    EmailVerificationTokensService,
     { provide: SECURE_HASHER, useClass: Argon2PasswordHasher },
   ],
 })

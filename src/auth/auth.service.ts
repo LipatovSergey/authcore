@@ -50,6 +50,14 @@ export class AuthService implements OnModuleInit {
       passwordHash,
     });
 
+    // sign and save email verification token
+    const signedEmailVerificationToken =
+      await this.jwtTokensService.signEmailVerificationToken(user.id);
+    await this.emailVerificationTokensService.create({
+      ...signedEmailVerificationToken,
+      userId: user.id,
+    });
+
     this.logger.log(`User registered: email=${user.email} userId=${user.id}`);
     return {
       id: user.id,
@@ -81,6 +89,14 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // must be after password check to avoid data leak
+    if (!user.isEmailVerified) {
+      this.logger.warn(
+        `Failed login attempt because email=${input.email}, is not verified`,
+      );
+      throw new UnauthorizedException('Email is not verified');
+    }
+
     const [rawAccessToken, signedRefreshToken] = await Promise.all([
       this.jwtTokensService.signAccessToken({
         sub: user.id,
@@ -102,14 +118,14 @@ export class AuthService implements OnModuleInit {
   }
 
   async refresh(input: RefreshRequestDto): Promise<RefreshResponseDto> {
-    const dbToken = await this.refreshTokensService.validateOrThrow(
+    const tokenInstance = await this.refreshTokensService.validateOrThrow(
       input.refresh_token,
     );
 
-    const user = await this.usersService.findById(dbToken.userId);
+    const user = await this.usersService.findById(tokenInstance.userId);
     if (!user) {
       this.logger.warn(
-        `Failed to refresh token because owner does not exist: userId=${dbToken.userId}`,
+        `Failed to refresh token because owner does not exist: userId=${tokenInstance.userId}`,
       );
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -122,9 +138,9 @@ export class AuthService implements OnModuleInit {
       this.jwtTokensService.signRefreshToken(user.id),
     ]);
 
-    await this.refreshTokensService.create({
-      ...signedRefreshToken,
-      userId: user.id,
+    await this.refreshTokensService.rotate({
+      oldTokenId: tokenInstance.id,
+      newTokenInput: { ...signedRefreshToken, userId: user.id },
     });
 
     this.logger.log(`Token refreshed: userId=${user.id}`);
