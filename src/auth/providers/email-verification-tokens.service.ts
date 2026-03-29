@@ -89,12 +89,4 @@ export class EmailVerificationTokensService {
 
     return tokenInstance;
   }
-
-  async markAsUsed(id: string): Promise<void> {
-    // find tokenInstance in DB and set usedAt field to Date now
-    const { affected } = await this.repo.update(id, { usedAt: new Date() });
-    if (affected === 0) {
-      throw new Error('Failed to mark email verification token as used');
-    }
-  }
 }

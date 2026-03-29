@@ -19,6 +19,17 @@ import { LogoutRequestDto, LogoutResponseDto } from './dto/logout.dto';
 import { LogoutAllRequestDto, LogoutAllResponseDto } from './dto/logoutAll.dto';
 import { GetProfileResponseDto } from './dto/get-profile.dto';
 import { EmailVerificationTokensService } from './providers/email-verification-tokens.service';
+import { DataSource } from 'typeorm';
+import { User } from '../users/entities/user.entity';
+import { EmailVerificationToken } from './entities/email-verification-token.entity';
+
+export const VERIFY_EMAIL_OUTCOME = {
+  VERIFIED: 'verified',
+  ALREADY_VERIFIED: 'already_verified',
+} as const;
+
+export type VerifyEmailOutcome =
+  (typeof VERIFY_EMAIL_OUTCOME)[keyof typeof VERIFY_EMAIL_OUTCOME];
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -29,6 +40,7 @@ export class AuthService implements OnModuleInit {
     private readonly jwtTokensService: JwtTokensService,
     private readonly refreshTokensService: RefreshTokensService,
     private readonly emailVerificationTokensService: EmailVerificationTokensService,
+    private readonly dataSource: DataSource,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -40,6 +52,40 @@ export class AuthService implements OnModuleInit {
     this.dummyHash = await this.secureHasher.hash(
       'authcore_dummy_password_for_timing_equalization_v1',
     );
+  }
+
+  async verifyEmail(rawToken: string) {
+    const tokenInstance =
+      await this.emailVerificationTokensService.validateOrThrow(rawToken);
+
+    const user = await this.usersService.findById(tokenInstance.userId);
+    if (!user) {
+      this.logger.warn(`Token belongs to non-existent user`);
+      throw new UnauthorizedException('Invalid email verification token');
+    }
+
+    if (user.isEmailVerified) {
+      return VERIFY_EMAIL_OUTCOME.ALREADY_VERIFIED;
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      const now = new Date();
+      const usersRepo = manager.getRepository(User);
+      const emailVerificationTokensRepo = manager.getRepository(
+        EmailVerificationToken,
+      );
+
+      await usersRepo.update(user.id, {
+        isEmailVerified: true,
+        emailVerifiedAt: now,
+      });
+
+      await emailVerificationTokensRepo.update(tokenInstance.id, {
+        usedAt: now,
+      });
+    });
+
+    return VERIFY_EMAIL_OUTCOME.VERIFIED;
   }
 
   async register(input: RegisterRequestDto): Promise<RegisterResponseDto> {
