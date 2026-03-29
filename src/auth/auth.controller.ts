@@ -7,8 +7,10 @@ import {
   UseGuards,
   Request,
   Header,
+  Query,
+  Res,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import { AuthService, VERIFY_EMAIL_OUTCOME } from './auth.service';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
 import { LoginRequestDto, LoginResponseDto } from './dto/login.dto';
 import { RefreshRequestDto, RefreshResponseDto } from './dto/refresh.dto';
@@ -27,17 +29,48 @@ import {
   ApiOperation,
   ApiUnauthorizedResponse,
   ApiTags,
+  ApiFoundResponse,
+  ApiQuery,
 } from '@nestjs/swagger';
 import {
   ConflictErrorResponseDto,
   UnauthorizedErrorResponseDto,
   ValidationErrorResponseDto,
 } from './dto/auth-response.dto';
+import { VerifyEmailQueryDto } from './dto/verify-email.dto';
+import { ConfigService } from '@nestjs/config';
+import type { Response } from 'express';
+import { resolve } from 'node:path';
+
+const verifiedPagePath = resolve(
+  process.cwd(),
+  'src',
+  'auth',
+  'pages',
+  'verified.html',
+);
+const alreadyVerifiedPagePath = resolve(
+  process.cwd(),
+  'src',
+  'auth',
+  'pages',
+  'already-verified.html',
+);
+const verificationFailedPagePath = resolve(
+  process.cwd(),
+  'src',
+  'auth',
+  'pages',
+  'verification-failed.html',
+);
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
+  ) {}
 
   // Register
   @ApiOperation({ summary: 'Register a new user' })
@@ -163,5 +196,54 @@ export class AuthController {
   @Header('Cache-Control', 'no-store')
   getProfile(@Request() req: AuthenticatedRequest) {
     return this.authService.getProfile(req.payload.sub);
+  }
+
+  // Verify user's email
+  @ApiOperation({
+    summary: 'Verify email by token',
+    description:
+      'Verifies the email verification token. Returns a built-in HTML result page by default, or redirects to the configured client result URL when redirect mode is enabled.',
+  })
+  @ApiQuery({
+    name: 'token',
+    required: true,
+    description: 'Email verification token from the email link',
+    type: String,
+  })
+  @ApiOkResponse({
+    description:
+      'Returns one of the built-in HTML result pages for verified, already verified, or invalid token outcomes when client redirect is not configured.',
+  })
+  @ApiFoundResponse({
+    description:
+      'Redirects to the configured client result URL with ?status=verified, ?status=already_verified, or ?status=invalid.',
+  })
+  @Get('verify-email')
+  @Header('Cache-Control', 'no-store')
+  async verifyEmail(@Query() query: VerifyEmailQueryDto, @Res() res: Response) {
+    const customResultUrl = this.config.get<string>(
+      'emailVerificationResultUrl',
+    );
+    try {
+      const outcome = await this.authService.verifyEmail(query.token);
+      if (customResultUrl) {
+        const redirectUrl = new URL(customResultUrl);
+        redirectUrl.searchParams.set('status', outcome);
+        return res.redirect(redirectUrl.toString());
+      }
+
+      if (outcome === VERIFY_EMAIL_OUTCOME.ALREADY_VERIFIED) {
+        return res.sendFile(alreadyVerifiedPagePath);
+      }
+
+      return res.sendFile(verifiedPagePath);
+    } catch (_error) {
+      if (customResultUrl) {
+        const redirectUrl = new URL(customResultUrl);
+        redirectUrl.searchParams.set('status', 'invalid');
+        return res.redirect(redirectUrl.toString());
+      }
+      return res.sendFile(verificationFailedPagePath);
+    }
   }
 }
