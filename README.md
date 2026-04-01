@@ -60,6 +60,52 @@ Swagger UI is available at `GET /api`.
 - Refresh flow uses token rotation
 - Rotation is hardened with an atomic database transaction
 
+## Why Email Verification Also Uses JWT
+
+Email verification in this project is intentionally implemented with **JWT + stateful database storage**, instead of using a completely separate random-token format.
+
+This decision was made for several reasons.
+
+First, the project already uses JWT as the main token mechanism for authentication flows. Reusing JWT for email verification keeps the overall design more consistent. Instead of maintaining one token model for access and refresh tokens and a second unrelated model for email verification, the service can rely on the same token transport format across the auth domain.
+
+Second, JWT already provides several pieces of metadata that are useful for stateful verification flows:
+
+- `jti` gives a unique token identifier that can be used for database lookup
+- `sub` identifies the user the token belongs to
+- `exp` provides a standard expiration claim that can be decoded into `expiresAt`
+
+Using these standard claims removes the need to invent a custom token representation such as manually encoding an `id + secret` structure into a string. That makes the implementation easier to reason about and reduces custom token-format logic in the project.
+
+Another important reason was token lookup. The database stores only a hash of the verification token, not the raw token itself. This project uses Argon2id for secure hashing, and Argon2 is intentionally non-deterministic because it uses a salt. That means hashing the same raw token again does not produce the same stored value. As a result, a random-token approach would require an additional lookup strategy, such as embedding an identifier into the token or storing a separate deterministic lookup hash.
+
+Using JWT solves that problem more cleanly in this project. The verification token can carry a `jti`, which is used to find the correct database record, while the raw token is still verified against the stored hash. This preserves secure storage without forcing the project to introduce a second token format and a second lookup model.
+
+Third, this project still keeps email verification **stateful**, even though the transport token is JWT. The database record is still required because the verification flow needs guarantees that a purely stateless token does not provide:
+
+- one-time use
+- explicit invalidation on resend
+- revocation tracking
+- database-backed lifecycle checks
+
+In other words, JWT is used here as a convenient and standardized token container, not as a replacement for database state.
+
+Fourth, this approach makes the internal architecture more uniform. The same high-level pattern can be used for both refresh tokens and email verification tokens:
+
+1. issue a JWT
+2. extract metadata such as `jti` and expiration
+3. hash the raw token before storing it
+4. persist the token record in PostgreSQL
+5. validate both the JWT and the database state during verification
+
+That consistency reduces cognitive overhead inside the project and makes the token flows easier to follow.
+
+There was also a valid alternative: using a random one-time token instead of JWT. That approach is common in real systems and is a good model to know. However, for this project, it would have introduced an additional token format and a separate lookup strategy, which would make the codebase less cohesive. Since AuthCore is meant to be both a learning project and a portfolio-ready reusable auth service, consistency and clarity were prioritized here.
+
+So the final tradeoff was:
+
+- **JWT + stateful** for better consistency, reuse of standard claims, and simpler token lookup
+- instead of **random token + stateful**, which is also valid but would introduce a second token model into the codebase
+
 ## Prerequisites
 
 - Node.js 20+
