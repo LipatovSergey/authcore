@@ -22,6 +22,8 @@ import { EmailVerificationTokensService } from './providers/email-verification-t
 import { DataSource } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { EmailVerificationToken } from './entities/email-verification-token.entity';
+import { ConfigService } from '@nestjs/config';
+import { MailService } from './providers/mail.service';
 
 export const VERIFY_EMAIL_OUTCOME = {
   VERIFIED: 'verified',
@@ -41,6 +43,8 @@ export class AuthService implements OnModuleInit {
     private readonly refreshTokensService: RefreshTokensService,
     private readonly emailVerificationTokensService: EmailVerificationTokensService,
     private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
+    private readonly mailService: MailService,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -99,10 +103,24 @@ export class AuthService implements OnModuleInit {
     // sign and save email verification token
     const signedEmailVerificationToken =
       await this.jwtTokensService.signEmailVerificationToken(user.id);
+
     await this.emailVerificationTokensService.create({
       ...signedEmailVerificationToken,
       userId: user.id,
     });
+
+    // create email verification link
+    const baseUrl = this.config.getOrThrow<string>('authPublicUrl');
+    const verificationLink = new URL(baseUrl);
+    verificationLink.pathname = '/auth/verify-email';
+    verificationLink.searchParams.set(
+      'token',
+      signedEmailVerificationToken.rawToken,
+    );
+    await this.mailService.sendEmailVerification(
+      user.email,
+      verificationLink.toString(),
+    );
 
     this.logger.log(`User registered: email=${user.email} userId=${user.id}`);
     return {

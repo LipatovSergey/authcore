@@ -17,6 +17,8 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
       envFilePath: [DOTENV_CONFIG_PATH],
 
       validationSchema: Joi.object({
+        AUTH_PUBLIC_URL: Joi.string().required(),
+
         POSTGRES_HOST: Joi.string().required(),
         POSTGRES_PORT: Joi.number().integer().required(),
         POSTGRES_USER: Joi.string().required(),
