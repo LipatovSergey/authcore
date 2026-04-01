@@ -2,17 +2,18 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { MailService } from '../../src/auth/providers/mail.service';
+import {
+  MailService,
+  MailServiceContract,
+} from '../../src/auth/providers/mail.service';
 import type { App } from 'supertest/types';
 
+export interface MailServiceMock extends MailServiceContract {
+  lastEmailVerificationLink: string | null;
+}
+
 export async function createTestApp() {
-  const mailServiceMock: {
-    lastEmailVerificationLink: null | string;
-    sendEmailVerification(
-      _email: string,
-      verificationLink: string,
-    ): Promise<void>;
-  } = {
+  const mailServiceMock: MailServiceMock = {
     lastEmailVerificationLink: null,
     // eslint-disable-next-line @typescript-eslint/require-await
     async sendEmailVerification(_email, verificationLink) {
