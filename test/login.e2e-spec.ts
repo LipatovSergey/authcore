@@ -2,15 +2,16 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
-import { createTestApp } from './helpers/test-app.helper';
+import { createTestApp, type MailServiceMock } from './helpers/test-app.helper';
 
 describe('/auth/login (POST)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
+  let mailServiceMock: MailServiceMock;
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer } = await createTestApp());
+    ({ app, dataSource, httpServer, mailServiceMock } = await createTestApp());
   });
 
   afterAll(async () => {
@@ -26,6 +27,12 @@ describe('/auth/login (POST)', () => {
         password: 'some spaced text',
       })
       .expect(201);
+    const verificationLink = mailServiceMock.lastEmailVerificationLink;
+    if (!verificationLink) {
+      throw new Error('Verification link was not captured by mailServiceMock');
+    }
+    const url = new URL(verificationLink);
+    await request(httpServer).get(`${url.pathname}${url.search}`);
   });
 
   it('returns 200 and auth tokens for valid credentials', async () => {
