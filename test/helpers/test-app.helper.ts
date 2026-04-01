@@ -2,12 +2,30 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { MailService } from '../../src/auth/providers/mail.service';
 import type { App } from 'supertest/types';
 
 export async function createTestApp() {
+  const mailServiceMock: {
+    lastEmailVerificationLink: null | string;
+    sendEmailVerification(
+      _email: string,
+      verificationLink: string,
+    ): Promise<void>;
+  } = {
+    lastEmailVerificationLink: null,
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async sendEmailVerification(_email, verificationLink) {
+      mailServiceMock.lastEmailVerificationLink = verificationLink;
+    },
+  };
+
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  })
+    .overrideProvider(MailService)
+    .useValue(mailServiceMock)
+    .compile();
 
   const app: INestApplication<App> = moduleFixture.createNestApplication();
   app.useGlobalPipes(
@@ -25,5 +43,6 @@ export async function createTestApp() {
     app,
     dataSource,
     httpServer,
+    mailServiceMock,
   };
 }
