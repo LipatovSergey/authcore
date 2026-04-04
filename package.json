@@ -18,7 +18,6 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "DOTENV_CONFIG_PATH=.env.test jest --config ./test/jest-e2e.json --runInBand",
-    "test:e2e:throttle": "DOTENV_CONFIG_PATH=.env.test.throttle jest --config ./test/jest-e2e-throttle.json --runInBand test/throttling.e2e-spec.ts",
     "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
     "typeorm:dev": "DOTENV_CONFIG_PATH=.env.development pnpm typeorm",
     "migration:show:dev": "pnpm typeorm:dev migration:show",

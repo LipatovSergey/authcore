@@ -8,12 +8,17 @@ import { createTestApp } from './helpers/test-app.helper';
 describe('/auth/register (POST)', () => {
   let app: INestApplication<App>;
   let httpServer: App;
+  let restoreEnv: () => void;
 
   beforeAll(async () => {
-    ({ app, httpServer } = await createTestApp());
+    ({ app, httpServer, restoreEnv } = await createTestApp({
+      THROTTLE_DEFAULT_LIMIT: '2',
+      THROTTLE_DEFAULT_TTL_MS: '1000',
+    }));
   });
 
   afterAll(async () => {
+    restoreEnv();
     await app.close();
   });
 
