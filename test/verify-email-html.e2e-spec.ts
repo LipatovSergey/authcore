@@ -2,17 +2,17 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
-import { createTestApp, type MailServiceMock } from './helpers/test-app.helper';
+import { createTestApp } from './helpers/test-app.helper';
+import { getLastEmailVerificationUrl } from './mocks/mail-service.mock';
 
 describe('/auth/verify-email (GET)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
-  let mailServiceMock: MailServiceMock;
   let verificationToken: string;
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer, mailServiceMock } = await createTestApp());
+    ({ app, dataSource, httpServer } = await createTestApp());
   });
 
   afterAll(async () => {
@@ -28,11 +28,7 @@ describe('/auth/verify-email (GET)', () => {
         password: 'some spaced text',
       })
       .expect(201);
-    const verificationLink = mailServiceMock.lastEmailVerificationLink;
-    if (!verificationLink) {
-      throw new Error('Verification link was not captured by mailServiceMock');
-    }
-    const url = new URL(verificationLink);
+    const url = getLastEmailVerificationUrl();
     verificationToken = url.searchParams.get('token') as string;
   });
 
