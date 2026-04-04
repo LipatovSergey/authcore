@@ -13,3 +13,9 @@ export const mailServiceMock: MailServiceMock = {
 };
 
 export const getLastEmailVerificationUrl = () => {
+  const verificationLink = mailServiceMock.lastEmailVerificationLink;
+  if (!verificationLink) {
+    throw new Error('Verification link was not captured by mailServiceMock');
+  }
+  return new URL(verificationLink);
+};
