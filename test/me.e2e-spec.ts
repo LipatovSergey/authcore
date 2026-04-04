@@ -3,6 +3,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { createTestApp } from './helpers/test-app.helper';
+import { getLastEmailVerificationUrl } from './mocks/mail-service.mock';
 
 describe('/auth/me (GET)', () => {
   let app: INestApplication<App>;
@@ -27,6 +28,8 @@ describe('/auth/me (GET)', () => {
         password: 'some spaced text',
       })
       .expect(201);
+    const url = getLastEmailVerificationUrl();
+    await request(httpServer).get(`${url.pathname}${url.search}`);
     const res = await request(httpServer).post('/auth/login').send({
       email: 'tester@gmail.com',
       password: 'some spaced text',
