@@ -5,7 +5,7 @@ import { DataSource } from 'typeorm';
 import { createTestApp } from './helpers/test-app.helper';
 import { getLastEmailVerificationUrl } from './mocks/mail-service.mock';
 
-describe('/auth/verify-email (GET) with redirection', () => {
+describe('/auth/email-verification (GET) with redirection', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
@@ -39,7 +39,7 @@ describe('/auth/verify-email (GET) with redirection', () => {
 
   it('returns 302 and redirects with verified status if token is valid', async () => {
     const res = await request(httpServer).get(
-      `/auth/verify-email?token=${verificationToken}`,
+      `/auth/email-verification?token=${verificationToken}`,
     );
     expect(res.statusCode).toBe(302);
     const location = new URL(res.headers.location);
@@ -49,10 +49,10 @@ describe('/auth/verify-email (GET) with redirection', () => {
 
   it('returns 302 and redirects with invalid status if token is reused', async () => {
     await request(httpServer).get(
-      `/auth/verify-email?token=${verificationToken}`,
+      `/auth/email-verification?token=${verificationToken}`,
     );
     const res = await request(httpServer).get(
-      `/auth/verify-email?token=${verificationToken}`,
+      `/auth/email-verification?token=${verificationToken}`,
     );
     expect(res.statusCode).toBe(302);
     const location = new URL(res.headers.location);
@@ -60,9 +60,9 @@ describe('/auth/verify-email (GET) with redirection', () => {
     expect(`${location.origin}${location.pathname}`).toBe(redirectUrl);
   });
 
-  it('returns 302 and redirects with invalid status if token is reused', async () => {
+  it('returns 302 and redirects with invalid status if token is invalid', async () => {
     const res = await request(httpServer).get(
-      `/auth/verify-email?token=invalid-token_invalid-token_invalid-token`,
+      `/auth/email-verification?token=invalid-token_invalid-token_invalid-token`,
     );
     expect(res.statusCode).toBe(302);
     const location = new URL(res.headers.location);

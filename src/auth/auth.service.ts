@@ -112,7 +112,7 @@ export class AuthService implements OnModuleInit {
     // create email verification link
     const baseUrl = this.config.getOrThrow<string>('authPublicUrl');
     const verificationLink = new URL(baseUrl);
-    verificationLink.pathname = '/auth/verify-email';
+    verificationLink.pathname = '/auth/email-verification';
     verificationLink.searchParams.set(
       'token',
       signedEmailVerificationToken.rawToken,

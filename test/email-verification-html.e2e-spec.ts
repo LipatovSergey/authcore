@@ -5,7 +5,7 @@ import { DataSource } from 'typeorm';
 import { createTestApp } from './helpers/test-app.helper';
 import { getLastEmailVerificationUrl } from './mocks/mail-service.mock';
 
-describe('/auth/verify-email (GET)', () => {
+describe('/auth/email-verification (GET)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
@@ -34,7 +34,7 @@ describe('/auth/verify-email (GET)', () => {
 
   it('returns 200 and success page if verification token is valid', async () => {
     const res = await request(httpServer).get(
-      `/auth/verify-email?token=${verificationToken}`,
+      `/auth/email-verification?token=${verificationToken}`,
     );
     expect(res.statusCode).toBe(200);
     expect(res.type).toContain('html');
@@ -43,10 +43,10 @@ describe('/auth/verify-email (GET)', () => {
 
   it('returns 200 and failure page when verification token is reused', async () => {
     await request(httpServer)
-      .get(`/auth/verify-email?token=${verificationToken}`)
+      .get(`/auth/email-verification?token=${verificationToken}`)
       .expect(200);
     const res = await request(httpServer).get(
-      `/auth/verify-email?token=${verificationToken}`,
+      `/auth/email-verification?token=${verificationToken}`,
     );
     expect(res.statusCode).toBe(200);
     expect(res.type).toContain('html');
@@ -55,7 +55,7 @@ describe('/auth/verify-email (GET)', () => {
 
   it('returns 200 and failure page if verification token invalid', async () => {
     const res = await request(httpServer).get(
-      `/auth/verify-email?token=invalid-token_invalid-token_invalid-token`,
+      `/auth/email-verification?token=invalid-token_invalid-token_invalid-token`,
     );
     expect(res.statusCode).toBe(200);
     expect(res.type).toContain('html');
@@ -64,7 +64,7 @@ describe('/auth/verify-email (GET)', () => {
 
   it('returns 400 if query input invalid', async () => {
     const res = await request(httpServer).get(
-      `/auth/verify-email?token=invalid`,
+      `/auth/email-verification?token=invalid`,
     );
     expect(res.statusCode).toBe(400);
     expect(res.body.error).toBe('Bad Request');

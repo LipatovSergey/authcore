@@ -36,8 +36,8 @@ import {
   ConflictErrorResponseDto,
   UnauthorizedErrorResponseDto,
   ValidationErrorResponseDto,
-} from './dto/auth-response.dto';
-import { VerifyEmailQueryDto } from './dto/verify-email.dto';
+} from './dto/auth-error-response.dto';
+import { VerifyEmailQueryDto } from './dto/email-verification.dto';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { resolve } from 'node:path';
@@ -218,9 +218,12 @@ export class AuthController {
     description:
       'Redirects to the configured client result URL with ?status=verified, ?status=already_verified, or ?status=invalid.',
   })
-  @Get('verify-email')
+  @Get('email-verification')
   @Header('Cache-Control', 'no-store')
-  async verifyEmail(@Query() query: VerifyEmailQueryDto, @Res() res: Response) {
+  async emailVerification(
+    @Query() query: VerifyEmailQueryDto,
+    @Res() res: Response,
+  ) {
     const customResultUrl = this.config.get<string>(
       'emailVerificationResultUrl',
     );
