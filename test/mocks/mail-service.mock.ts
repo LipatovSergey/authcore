@@ -17,5 +17,9 @@ export const getLastEmailVerificationUrl = () => {
   if (!verificationLink) {
     throw new Error('Verification link was not captured by mailServiceMock');
   }
-  return new URL(verificationLink);
+  const url = new URL(verificationLink);
+  if (!url.searchParams.get('token')) {
+    throw new Error('Invalid verification link');
+  }
+  return url;
 };
