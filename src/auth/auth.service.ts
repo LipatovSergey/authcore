@@ -24,6 +24,10 @@ import { User } from '../users/entities/user.entity';
 import { EmailVerificationToken } from './entities/email-verification-token.entity';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from './providers/mail.service';
+import {
+  EmailVerificationResendRequestDto,
+  EmailVerificationResendResponseDto,
+} from './dto/email-verification-resend.dto';
 
 export const VERIFY_EMAIL_OUTCOME = {
   VERIFIED: 'verified',
@@ -92,21 +96,13 @@ export class AuthService implements OnModuleInit {
     return VERIFY_EMAIL_OUTCOME.VERIFIED;
   }
 
-  async register(input: RegisterRequestDto): Promise<RegisterResponseDto> {
-    const passwordHash = await this.secureHasher.hash(input.password);
-
-    const user = await this.usersService.createUser({
-      email: input.email,
-      passwordHash,
-    });
-
-    // sign and save email verification token
+  private async sendEmailVerification(userId: string, email: string) {
     const signedEmailVerificationToken =
-      await this.jwtTokensService.signEmailVerificationToken(user.id);
+      await this.jwtTokensService.signEmailVerificationToken(userId);
 
     await this.emailVerificationTokensService.create({
       ...signedEmailVerificationToken,
-      userId: user.id,
+      userId,
     });
 
     // create email verification link
@@ -118,9 +114,32 @@ export class AuthService implements OnModuleInit {
       signedEmailVerificationToken.rawToken,
     );
     await this.mailService.sendEmailVerification(
-      user.email,
+      email,
       verificationLink.toString(),
     );
+  }
+
+  async emailVerificationResend(
+    input: EmailVerificationResendRequestDto,
+  ): Promise<EmailVerificationResendResponseDto> {
+    const { email } = input;
+    const user = await this.usersService.findByEmail(email);
+    if (user && !user.isEmailVerified) {
+      await this.sendEmailVerification(user.id, user.email);
+    }
+
+    return { message: 'ok' };
+  }
+
+  async register(input: RegisterRequestDto): Promise<RegisterResponseDto> {
+    const passwordHash = await this.secureHasher.hash(input.password);
+
+    const user = await this.usersService.createUser({
+      email: input.email,
+      passwordHash,
+    });
+
+    await this.sendEmailVerification(user.id, user.email);
 
     this.logger.log(`User registered: email=${user.email} userId=${user.id}`);
     return {

@@ -120,6 +120,7 @@ export class AuthController {
   }
 
   // Verify user's email
+  @ApiEmailVerificationEndpoint()
   @Get('email-verification')
   @Header('Cache-Control', 'no-store')
   async emailVerification(
@@ -150,5 +151,18 @@ export class AuthController {
       }
       return res.sendFile(verificationFailedPagePath);
     }
+  }
+
+  @ApiEmailVerificationResendEndpoint()
+  @Post('email-verification/resend')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  emailVerificationResend(
+    @Body()
+    emailVerificationResendRequestDto: EmailVerificationResendRequestDto,
+  ) {
+    return this.authService.emailVerificationResend(
+      emailVerificationResendRequestDto,
+    );
   }
 }

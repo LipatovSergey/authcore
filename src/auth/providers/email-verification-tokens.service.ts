@@ -52,6 +52,7 @@ export class EmailVerificationTokensService {
       expiresAt,
     });
 
+    // save new token and revore all unused tokens
     await this.repo.manager.transaction(async (manager) => {
       const txRepo = manager.getRepository(EmailVerificationToken);
       await txRepo.update(
