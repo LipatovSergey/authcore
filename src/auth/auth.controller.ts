@@ -12,35 +12,29 @@ import {
 } from '@nestjs/common';
 import { AuthService, VERIFY_EMAIL_OUTCOME } from './auth.service';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
-import { LoginRequestDto, LoginResponseDto } from './dto/login.dto';
-import { RefreshRequestDto, RefreshResponseDto } from './dto/refresh.dto';
-import { LogoutRequestDto, LogoutResponseDto } from './dto/logout.dto';
-import { LogoutAllRequestDto, LogoutAllResponseDto } from './dto/logoutAll.dto';
-import { GetProfileResponseDto } from './dto/get-profile.dto';
+import { LoginRequestDto } from './dto/login.dto';
+import { RefreshRequestDto } from './dto/refresh.dto';
+import { LogoutRequestDto } from './dto/logout.dto';
+import { LogoutAllRequestDto } from './dto/logoutAll.dto';
 import { AuthGuard } from './auth.guard';
 import type { AuthenticatedRequest } from './types/authenticated-request';
 import { Throttle } from '@nestjs/throttler';
-import {
-  ApiBadRequestResponse,
-  ApiBearerAuth,
-  ApiConflictResponse,
-  ApiCreatedResponse,
-  ApiOkResponse,
-  ApiOperation,
-  ApiUnauthorizedResponse,
-  ApiTags,
-  ApiFoundResponse,
-  ApiQuery,
-} from '@nestjs/swagger';
-import {
-  ConflictErrorResponseDto,
-  UnauthorizedErrorResponseDto,
-  ValidationErrorResponseDto,
-} from './dto/auth-error-response.dto';
 import { VerifyEmailQueryDto } from './dto/email-verification.dto';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { resolve } from 'node:path';
+import { EmailVerificationResendRequestDto } from './dto/email-verification-resend.dto';
+import {
+  ApiAuthController,
+  ApiEmailVerificationEndpoint,
+  ApiEmailVerificationResendEndpoint,
+  ApiGetProfileEndpoint,
+  ApiLoginEndpoint,
+  ApiLogoutAllEndpoint,
+  ApiLogoutEndpoint,
+  ApiRefreshEndpoint,
+  ApiRegisterEndpoint,
+} from './auth-swagger.decorators';
 
 const verifiedPagePath = resolve(
   process.cwd(),
@@ -64,7 +58,7 @@ const verificationFailedPagePath = resolve(
   'verification-failed.html',
 );
 
-@ApiTags('auth')
+@ApiAuthController()
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -73,19 +67,7 @@ export class AuthController {
   ) {}
 
   // Register
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiCreatedResponse({
-    description: 'User registered successfully',
-    type: RegisterResponseDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Validation failed',
-    type: ValidationErrorResponseDto,
-  })
-  @ApiConflictResponse({
-    description: 'Email already exists',
-    type: ConflictErrorResponseDto,
-  })
+  @ApiRegisterEndpoint()
   @Throttle({ default: { limit: 5, ttl: 600000 } })
   @Post('register')
   register(
@@ -95,19 +77,7 @@ export class AuthController {
   }
 
   // Login
-  @ApiOperation({ summary: 'Log in with email and password' })
-  @ApiOkResponse({
-    description: 'Tokens returned successfully',
-    type: LoginResponseDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Validation failed',
-    type: ValidationErrorResponseDto,
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Invalid credentials',
-    type: UnauthorizedErrorResponseDto,
-  })
+  @ApiLoginEndpoint()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   @HttpCode(200)
@@ -116,19 +86,7 @@ export class AuthController {
   }
 
   // Refresh tokens
-  @ApiOperation({ summary: 'Refresh access and refresh tokens' })
-  @ApiOkResponse({
-    description: 'Tokens refreshed successfully',
-    type: RefreshResponseDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Validation failed',
-    type: ValidationErrorResponseDto,
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Invalid refresh token',
-    type: UnauthorizedErrorResponseDto,
-  })
+  @ApiRefreshEndpoint()
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post('refresh')
   @HttpCode(200)
@@ -137,19 +95,7 @@ export class AuthController {
   }
 
   // Logout current session
-  @ApiOperation({ summary: 'Log out from current session' })
-  @ApiOkResponse({
-    description: 'Current refresh token revoked successfully',
-    type: LogoutResponseDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Validation failed',
-    type: ValidationErrorResponseDto,
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Invalid refresh token',
-    type: UnauthorizedErrorResponseDto,
-  })
+  @ApiLogoutEndpoint()
   @Post('logout')
   @HttpCode(200)
   logout(@Body() logoutRequestDto: LogoutRequestDto) {
@@ -157,19 +103,7 @@ export class AuthController {
   }
 
   // Logout all sessions
-  @ApiOperation({ summary: 'Log out from all sessions' })
-  @ApiOkResponse({
-    description: 'All user refresh tokens revoked successfully',
-    type: LogoutAllResponseDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Validation failed',
-    type: ValidationErrorResponseDto,
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Invalid refresh token',
-    type: UnauthorizedErrorResponseDto,
-  })
+  @ApiLogoutAllEndpoint()
   @Post('logout-all')
   @HttpCode(200)
   logoutAll(@Body() logoutAllRequestDto: LogoutAllRequestDto) {
@@ -177,20 +111,7 @@ export class AuthController {
   }
 
   // Get current user profile
-  @ApiBearerAuth('bearer')
-  @ApiOperation({ summary: 'Get current user profile' })
-  @ApiOkResponse({
-    description: 'Current user profile returned successfully',
-    type: GetProfileResponseDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Validation failed',
-    type: ValidationErrorResponseDto,
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Access token is missing or invalid',
-    type: UnauthorizedErrorResponseDto,
-  })
+  @ApiGetProfileEndpoint()
   @UseGuards(AuthGuard)
   @Get('me')
   @Header('Cache-Control', 'no-store')
@@ -199,25 +120,6 @@ export class AuthController {
   }
 
   // Verify user's email
-  @ApiOperation({
-    summary: 'Verify email by token',
-    description:
-      'Verifies the email verification token. Returns a built-in HTML result page by default, or redirects to the configured client result URL when redirect mode is enabled.',
-  })
-  @ApiQuery({
-    name: 'token',
-    required: true,
-    description: 'Email verification token from the email link',
-    type: String,
-  })
-  @ApiOkResponse({
-    description:
-      'Returns one of the built-in HTML result pages for verified, already verified, or invalid token outcomes when client redirect is not configured.',
-  })
-  @ApiFoundResponse({
-    description:
-      'Redirects to the configured client result URL with ?status=verified, ?status=already_verified, or ?status=invalid.',
-  })
   @Get('email-verification')
   @Header('Cache-Control', 'no-store')
   async emailVerification(
