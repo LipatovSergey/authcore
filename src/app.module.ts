@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import * as Joi from 'joi';
 import configuration from './config/configuration';
@@ -70,6 +71,8 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
         synchronize: false,
       }),
     }),
+
+    ScheduleModule.forRoot(),
 
     AuthModule,
   ],
