@@ -13,6 +13,7 @@ import { RefreshTokensService } from './providers/refresh-tokens.service';
 import { EmailVerificationTokensService } from './providers/email-verification-tokens.service';
 import { EmailVerificationToken } from './entities/email-verification-token.entity';
 import { MailService } from './providers/mail.service';
+import { UnverifiedUsersCleanupService } from './providers/unverified-users-cleanup.service';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { MailService } from './providers/mail.service';
     RefreshTokensService,
     EmailVerificationTokensService,
     MailService,
+    UnverifiedUsersCleanupService,
     { provide: SECURE_HASHER, useClass: Argon2PasswordHasher },
   ],
 })
