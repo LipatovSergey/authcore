@@ -2,8 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
-import { createTestApp } from './helpers/test-app.helper';
-import { getLastEmailVerificationUrl } from './mocks/mail-service.mock';
+import { createTestApp } from '../helpers/test-app.helper';
+import { getLastEmailVerificationUrl } from '../mocks/mail-service.mock';
 
 describe('/auth/email-verification (GET)', () => {
   let app: INestApplication<App>;

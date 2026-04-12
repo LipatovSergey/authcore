@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
-import { createTestApp } from './helpers/test-app.helper';
+import { createTestApp } from '../helpers/test-app.helper';
 
 describe('/auth/register (POST)', () => {
   let app: INestApplication<App>;
