@@ -27,6 +27,11 @@ export class CreateUsersTable1770691907679 implements MigrationInterface {
             isNullable: true,
           },
           {
+            name: 'unverified_expires_at',
+            type: 'timestamptz',
+            isNullable: true,
+          },
+          {
             name: 'created_at',
             type: 'timestamptz',
             isNullable: false,
@@ -41,6 +46,24 @@ export class CreateUsersTable1770691907679 implements MigrationInterface {
         ],
       }),
     );
+
+    await queryRunner.query(`
+      ALTER TABLE users
+      ADD CONSTRAINT chk_users_email_verification_state
+      CHECK (
+        (
+          is_email_verified = true
+          AND email_verified_at IS NOT NULL
+          AND unverified_expires_at IS NULL
+        )
+        OR
+        (
+          is_email_verified = false
+          AND email_verified_at IS NULL
+          AND unverified_expires_at IS NOT NULL
+        )
+      )
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

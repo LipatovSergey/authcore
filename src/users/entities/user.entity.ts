@@ -23,6 +23,13 @@ export class User {
   @Column({ name: 'email_verified_at', type: 'timestamptz', nullable: true })
   emailVerifiedAt: Date | null;
 
+  @Column({
+    name: 'unverified_expires_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  unverifiedExpiresAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
