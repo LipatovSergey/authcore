@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -36,6 +41,15 @@ export class UsersService {
         throw new ConflictException('Email already exists');
       }
       throw error;
+    }
+  }
+
+  async refreshUnverifiedExpiresAt(id: string, unverifiedExpiresAt: Date) {
+    const { affected } = await this.repo.update(id, { unverifiedExpiresAt });
+    if (affected === 0) {
+      throw new InternalServerErrorException(
+        'Unexpected missing user during unverified expiry refresh',
+      );
     }
   }
 
