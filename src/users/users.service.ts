@@ -5,9 +5,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
-import { EmailVerificationToken } from '../auth/entities/email-verification-token.entity';
 import type { CreateUserInput } from './interfaces/create-user.input';
 import { isPostgresErrorLike } from './interfaces/utils/is-postgres-db-error.util';
 
@@ -44,7 +43,10 @@ export class UsersService {
     }
   }
 
-  async refreshUnverifiedExpiresAt(id: string, unverifiedExpiresAt: Date) {
+  async refreshUnverifiedExpiresAt(
+    id: string,
+    unverifiedExpiresAt: Date,
+  ): Promise<void> {
     const { affected } = await this.repo.update(id, { unverifiedExpiresAt });
     if (affected === 0) {
       throw new InternalServerErrorException(
@@ -61,28 +63,11 @@ export class UsersService {
     return this.repo.findOneBy({ id });
   }
 
-  async cleanupUnverifiedUsers(cutoffDate: Date): Promise<number> {
-    const cleanupCandidateRows: Array<{ id: string }> = await this.repo
-      .createQueryBuilder('user')
-      .where('user.isEmailVerified = :isEmailVerified', {
-        isEmailVerified: false,
-      })
-      .leftJoin(
-        EmailVerificationToken,
-        'evt',
-        'evt.userId = user.id AND evt.usedAt IS NULL AND evt.revokedAt IS NULL',
-      )
-      .andWhere('(evt.id IS NULL OR evt.createdAt < :cutoffDate)', {
-        cutoffDate,
-      })
-      .select('user.id', 'id')
-      .getRawMany();
-
-    const cleanupCandidateIds = cleanupCandidateRows.map((item) => item.id);
-    if (cleanupCandidateIds.length === 0) {
-      return 0;
-    }
-    const { affected } = await this.repo.delete(cleanupCandidateIds);
+  async cleanupUnverifiedUsers(now: Date): Promise<number> {
+    const { affected } = await this.repo.delete({
+      isEmailVerified: false,
+      unverifiedExpiresAt: LessThan(now),
+    });
     if (affected === undefined || affected === null) {
       throw new Error(
         'Failed to determine how many unverified users were deleted',

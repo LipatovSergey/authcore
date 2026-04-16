@@ -138,7 +138,7 @@ export class AuthService implements OnModuleInit {
     return { message: 'ok' };
   }
 
-  private calculateUnverifiedUserExpiresAt() {
+  private calculateUnverifiedUserExpiresAt(): Date {
     const cutoffMs =
       Date.now() + this.config.getOrThrow<number>('unverifiedUserTtlMs');
     return new Date(cutoffMs);
