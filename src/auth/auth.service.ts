@@ -86,6 +86,7 @@ export class AuthService implements OnModuleInit {
       await usersRepo.update(user.id, {
         isEmailVerified: true,
         emailVerifiedAt: now,
+        unverifiedExpiresAt: null,
       });
 
       await emailVerificationTokensRepo.update(tokenInstance.id, {
