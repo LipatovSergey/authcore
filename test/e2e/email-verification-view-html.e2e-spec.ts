@@ -2,6 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
+import { User } from 'src/users/entities/user.entity';
+import { Repository } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
 import { getLastEmailVerificationUrl } from '../mocks/mail-service.mock';
 
@@ -10,9 +12,12 @@ describe('/auth/email-verification (GET)', () => {
   let dataSource: DataSource;
   let httpServer: App;
   let verificationToken: string;
+  let userRepository: Repository<User>;
+  const userEmail = 'tester@gmail.com';
 
   beforeAll(async () => {
     ({ app, dataSource, httpServer } = await createTestApp());
+    userRepository = dataSource.getRepository(User);
   });
 
   afterAll(async () => {
@@ -24,7 +29,7 @@ describe('/auth/email-verification (GET)', () => {
     await request(httpServer)
       .post('/auth/register')
       .send({
-        email: 'tester@gmail.com',
+        email: userEmail,
         password: 'some spaced text',
       })
       .expect(201);
@@ -32,13 +37,25 @@ describe('/auth/email-verification (GET)', () => {
     verificationToken = url.searchParams.get('token') as string;
   });
 
-  it('returns 200 and success page if verification token is valid', async () => {
+  it('returns 200 and success page for valid token and marks user as verified', async () => {
+    const userBeforeVerification = await userRepository.findOneBy({
+      email: userEmail,
+    });
+    expect(userBeforeVerification?.isEmailVerified).toBe(false);
+    expect(userBeforeVerification?.emailVerifiedAt).toBeNull();
+    expect(userBeforeVerification?.unverifiedExpiresAt).toBeInstanceOf(Date);
     const res = await request(httpServer).get(
       `/auth/email-verification?token=${verificationToken}`,
     );
     expect(res.statusCode).toBe(200);
     expect(res.type).toContain('html');
     expect(res.text).toContain('Email verified');
+    const userAfterVerification = await userRepository.findOneBy({
+      email: userEmail,
+    });
+    expect(userAfterVerification?.isEmailVerified).toBe(true);
+    expect(userAfterVerification?.emailVerifiedAt).toBeInstanceOf(Date);
+    expect(userAfterVerification?.unverifiedExpiresAt).toBeNull();
   });
 
   it('returns 200 and failure page when verification token is reused', async () => {
