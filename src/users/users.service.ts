@@ -19,6 +19,7 @@ export class UsersService {
     const user = this.repo.create({
       email: input.email,
       passwordHash: input.passwordHash,
+      unverifiedExpiresAt: input.unverifiedExpiresAt,
     });
 
     try {

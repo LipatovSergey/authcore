@@ -131,12 +131,20 @@ export class AuthService implements OnModuleInit {
     return { message: 'ok' };
   }
 
+  private calculateUnverifiedUserExpiresAt() {
+    const cutoffMs =
+      Date.now() + this.config.getOrThrow<number>('unverifiedUserTtlMs');
+    return new Date(cutoffMs);
+  }
+
   async register(input: RegisterRequestDto): Promise<RegisterResponseDto> {
     const passwordHash = await this.secureHasher.hash(input.password);
+    const unverifiedExpiresAt = this.calculateUnverifiedUserExpiresAt();
 
     const user = await this.usersService.createUser({
       email: input.email,
       passwordHash,
+      unverifiedExpiresAt,
     });
 
     await this.sendEmailVerification(user.id, user.email);
