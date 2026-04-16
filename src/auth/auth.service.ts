@@ -62,6 +62,7 @@ export class AuthService implements OnModuleInit {
     );
   }
 
+  // TODO: need to refactor, transaction must be moved to separate file
   async verifyEmail(rawToken: string) {
     const tokenInstance =
       await this.emailVerificationTokensService.validateOrThrow(rawToken);
@@ -126,6 +127,11 @@ export class AuthService implements OnModuleInit {
     const { email } = input;
     const user = await this.usersService.findByEmail(email);
     if (user && !user.isEmailVerified) {
+      const unverifiedExpiresAt = this.calculateUnverifiedUserExpiresAt();
+      await this.usersService.refreshUnverifiedExpiresAt(
+        user.id,
+        unverifiedExpiresAt,
+      );
       await this.sendEmailVerification(user.id, user.email);
     }
 
