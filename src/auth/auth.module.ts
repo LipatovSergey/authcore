@@ -14,6 +14,8 @@ import { EmailVerificationTokensService } from './providers/email-verification-t
 import { EmailVerificationToken } from './entities/email-verification-token.entity';
 import { MailService } from './providers/mail.service';
 import { UnverifiedUsersCleanupService } from './providers/unverified-users-cleanup.service';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { PasswordResetTokensService } from './providers/password-reset-tokens.service';
 
 @Module({
   imports: [
@@ -28,7 +30,11 @@ import { UnverifiedUsersCleanupService } from './providers/unverified-users-clea
         },
       }),
     }),
-    TypeOrmModule.forFeature([RefreshToken, EmailVerificationToken]),
+    TypeOrmModule.forFeature([
+      RefreshToken,
+      EmailVerificationToken,
+      PasswordResetToken,
+    ]),
   ],
   controllers: [AuthController],
   providers: [
@@ -36,6 +42,7 @@ import { UnverifiedUsersCleanupService } from './providers/unverified-users-clea
     JwtTokensService,
     RefreshTokensService,
     EmailVerificationTokensService,
+    PasswordResetTokensService,
     MailService,
     UnverifiedUsersCleanupService,
     { provide: SECURE_HASHER, useClass: Argon2PasswordHasher },
