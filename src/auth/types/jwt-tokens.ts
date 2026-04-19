@@ -13,6 +13,11 @@ export interface EmailVerificationTokenPayload {
   jti: string;
 }
 
+export interface PasswordResetTokenPayload {
+  sub: string;
+  jti: string;
+}
+
 export interface SignedRefreshToken {
   rawToken: string;
   jti: string;
