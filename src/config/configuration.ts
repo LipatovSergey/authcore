@@ -14,6 +14,8 @@ export default () => ({
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
     emailVerificationSecret: process.env.JWT_EMAIL_VERIFICATION_SECRET,
     emailVerificationExpiresIn: process.env.JWT_EMAIL_VERIFICATION_EXPIRES_IN,
+    passwordResetSecret: process.env.JWT_PASSWORD_RESET_SECRET,
+    passwordResetExpiresIn: process.env.JWT_PASSWORD_RESET_EXPIRES_IN,
   },
 
   argon2: {

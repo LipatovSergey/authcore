@@ -32,6 +32,8 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
         JWT_REFRESH_EXPIRES_IN: Joi.string().required(),
         JWT_EMAIL_VERIFICATION_SECRET: Joi.string().required(),
         JWT_EMAIL_VERIFICATION_EXPIRES_IN: Joi.string().required(),
+        JWT_PASSWORD_RESET_SECRET: Joi.string().required(),
+        JWT_PASSWORD_RESET_EXPIRES_IN: Joi.string().required(),
 
         ARGON2_MEMORY_COST: Joi.number().integer().positive().required(),
         ARGON2_TIME_COST: Joi.number().integer().positive().required(),
