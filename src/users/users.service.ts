@@ -1,11 +1,6 @@
-import {
-  ConflictException,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Repository } from 'typeorm';
+import { EntityManager, LessThan, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import type { CreateUserInput } from './interfaces/create-user.input';
 import { isPostgresErrorLike } from './interfaces/utils/is-postgres-db-error.util';
@@ -47,12 +42,22 @@ export class UsersService {
     id: string,
     unverifiedExpiresAt: Date,
   ): Promise<void> {
-    const { affected } = await this.repo.update(id, { unverifiedExpiresAt });
-    if (affected === 0) {
-      throw new InternalServerErrorException(
-        'Unexpected missing user during unverified expiry refresh',
+    await this.repo.manager.transaction(async (manager) => {
+      await this.refreshUnverifiedExpiresAtWithManager(
+        id,
+        unverifiedExpiresAt,
+        manager,
       );
-    }
+    });
+  }
+
+  async refreshUnverifiedExpiresAtWithManager(
+    id: string,
+    unverifiedExpiresAt: Date,
+    manager: EntityManager,
+  ): Promise<void> {
+    const repo = manager.getRepository(User);
+    await repo.update({ id, isEmailVerified: false }, { unverifiedExpiresAt });
   }
 
   async findByEmail(email: string): Promise<User | null> {
