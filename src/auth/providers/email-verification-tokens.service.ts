@@ -10,7 +10,7 @@ import {
   SECURE_HASHER,
   type SecureHasher,
 } from '../interfaces/secure-hasher.interface';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { CreateEmailVerificationTokenInput } from '../types/email-verification-tokens';
 import { JwtTokensService } from './jwt-tokens.service';
 import { EmailVerificationTokenPayload } from '../types/jwt-tokens';
@@ -40,6 +40,37 @@ export class EmailVerificationTokensService {
 
   private async findByJti(jti: string): Promise<EmailVerificationToken | null> {
     return this.repo.findOneBy({ jti });
+  }
+
+  async markTokenAsUsedWithManager(
+    id: string,
+    now: Date,
+    manager: EntityManager,
+  ): Promise<void> {
+    const repo = manager.getRepository(EmailVerificationToken);
+    await repo.update(id, { usedAt: now });
+  }
+
+  async rotateWithManager(
+    input: CreateEmailVerificationTokenInput,
+    manager: EntityManager,
+  ): Promise<void> {
+    const { rawToken, jti, userId, expiresAt } = input;
+    const tokenHash = await this.secureHasher.hash(rawToken);
+    const repo = manager.getRepository(EmailVerificationToken);
+
+    await repo.update(
+      { userId, revokedAt: IsNull(), usedAt: IsNull() },
+      { revokedAt: new Date() },
+    );
+
+    const tokenRecord = repo.create({
+      tokenHash,
+      jti,
+      userId,
+      expiresAt,
+    });
+    await repo.save(tokenRecord);
   }
 
   async create(input: CreateEmailVerificationTokenInput): Promise<void> {

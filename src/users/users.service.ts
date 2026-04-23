@@ -55,9 +55,13 @@ export class UsersService {
     id: string,
     unverifiedExpiresAt: Date,
     manager: EntityManager,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const repo = manager.getRepository(User);
-    await repo.update({ id, isEmailVerified: false }, { unverifiedExpiresAt });
+    const { affected } = await repo.update(
+      { id, isEmailVerified: false },
+      { unverifiedExpiresAt },
+    );
+    return affected === 1;
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -66,6 +70,19 @@ export class UsersService {
 
   async findById(id: string): Promise<User | null> {
     return this.repo.findOneBy({ id });
+  }
+
+  async confirmEmailVerificationWithManager(
+    id: string,
+    now: Date,
+    manager: EntityManager,
+  ): Promise<void> {
+    const repo = manager.getRepository(User);
+    await repo.update(id, {
+      isEmailVerified: true,
+      emailVerifiedAt: now,
+      unverifiedExpiresAt: null,
+    });
   }
 
   async cleanupUnverifiedUsers(now: Date): Promise<number> {

@@ -65,7 +65,6 @@ export class AuthService implements OnModuleInit {
     );
   }
 
-  // TODO: need to refactor, transaction must be moved to separate file
   async verifyEmail(rawToken: string) {
     const tokenInstance =
       await this.emailVerificationTokensService.validateOrThrow(rawToken);
@@ -82,20 +81,17 @@ export class AuthService implements OnModuleInit {
 
     await this.dataSource.transaction(async (manager) => {
       const now = new Date();
-      const usersRepo = manager.getRepository(User);
-      const emailVerificationTokensRepo = manager.getRepository(
-        EmailVerificationToken,
+      await this.usersService.confirmEmailVerificationWithManager(
+        user.id,
+        now,
+        manager,
       );
 
-      await usersRepo.update(user.id, {
-        isEmailVerified: true,
-        emailVerifiedAt: now,
-        unverifiedExpiresAt: null,
-      });
-
-      await emailVerificationTokensRepo.update(tokenInstance.id, {
-        usedAt: now,
-      });
+      await this.emailVerificationTokensService.markTokenAsUsedWithManager(
+        tokenInstance.id,
+        now,
+        manager,
+      );
     });
 
     return VERIFY_EMAIL_OUTCOME.VERIFIED;
@@ -122,6 +118,68 @@ export class AuthService implements OnModuleInit {
       email,
       verificationLink.toString(),
     );
+  }
+
+  async emailVerificationResend(
+    input: EmailVerificationResendRequestDto,
+  ): Promise<EmailVerificationResendResponseDto> {
+    const { email } = input;
+    const user = await this.usersService.findByEmail(email);
+    if (!user || user.isEmailVerified) {
+      return { message: 'ok' };
+    }
+    // sign email verification token
+    const signedEmailVerificationToken =
+      await this.jwtTokensService.signEmailVerificationToken(user.id);
+
+    let shouldSendEmail = false;
+    await this.dataSource.transaction(async (manager) => {
+      const unverifiedExpiresAt = this.calculateUnverifiedUserExpiresAt();
+      const refreshed =
+        await this.usersService.refreshUnverifiedExpiresAtWithManager(
+          user.id,
+          unverifiedExpiresAt,
+          manager,
+        );
+
+      if (!refreshed) {
+        return;
+      }
+
+      await this.emailVerificationTokensService.rotateWithManager(
+        {
+          ...signedEmailVerificationToken,
+          userId: user.id,
+        },
+        manager,
+      );
+      shouldSendEmail = true;
+    });
+    if (!shouldSendEmail) {
+      return { message: 'ok' };
+    }
+    // create email verification link
+    const baseUrl = this.config.getOrThrow<string>('authPublicUrl');
+    const verificationLink = new URL(baseUrl);
+    verificationLink.pathname = '/auth/email-verification';
+    verificationLink.searchParams.set(
+      'token',
+      signedEmailVerificationToken.rawToken,
+    );
+    // send email
+    try {
+      await this.mailService.sendEmailVerification(
+        email,
+        verificationLink.toString(),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send email for email verification after token rotation: userId=${user.id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      return { message: 'ok' };
+    }
+    return { message: 'ok' };
   }
 
   async forgotPassword(input: ForgotPasswordRequestDto) {
@@ -172,24 +230,6 @@ export class AuthService implements OnModuleInit {
       );
       return { message: 'ok' };
     }
-
-    return { message: 'ok' };
-  }
-
-  async emailVerificationResend(
-    input: EmailVerificationResendRequestDto,
-  ): Promise<EmailVerificationResendResponseDto> {
-    const { email } = input;
-    const user = await this.usersService.findByEmail(email);
-    if (user && !user.isEmailVerified) {
-      const unverifiedExpiresAt = this.calculateUnverifiedUserExpiresAt();
-      await this.usersService.refreshUnverifiedExpiresAt(
-        user.id,
-        unverifiedExpiresAt,
-      );
-      await this.sendEmailVerification(user.id, user.email);
-    }
-
     return { message: 'ok' };
   }
 
