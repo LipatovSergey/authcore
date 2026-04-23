@@ -10,7 +10,7 @@ import {
   SECURE_HASHER,
   type SecureHasher,
 } from '../interfaces/secure-hasher.interface';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { CreatePasswordResetTokenInput } from '../types/password-reset-tokens';
 import { JwtTokensService } from './jwt-tokens.service';
 import { PasswordResetTokenPayload } from '../types/jwt-tokens';
@@ -42,25 +42,27 @@ export class PasswordResetTokensService {
     return this.repo.findOneBy({ jti });
   }
 
-  async create(input: CreatePasswordResetTokenInput): Promise<void> {
+  async rotateWithManager(
+    input: CreatePasswordResetTokenInput,
+    manager: EntityManager,
+  ) {
     const { rawToken, jti, userId, expiresAt } = input;
     const tokenHash = await this.secureHasher.hash(rawToken);
-    const tokenRecord = this.repo.create({
+    const repo = manager.getRepository(PasswordResetToken);
+
+    await repo.update(
+      { userId, revokedAt: IsNull(), usedAt: IsNull() },
+      { revokedAt: new Date() },
+    );
+
+    const tokenRecord = repo.create({
       tokenHash,
       jti,
       userId,
       expiresAt,
     });
 
-    // save new token and revoke all unused tokens
-    await this.repo.manager.transaction(async (manager) => {
-      const txRepo = manager.getRepository(PasswordResetToken);
-      await txRepo.update(
-        { userId, revokedAt: IsNull(), usedAt: IsNull() },
-        { revokedAt: new Date() },
-      );
-      await txRepo.save(tokenRecord);
-    });
+    await repo.save(tokenRecord);
   }
 
   async validateOrThrow(rawToken: string) {
