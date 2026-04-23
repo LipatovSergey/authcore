@@ -35,6 +35,7 @@ import {
   ApiRefreshEndpoint,
   ApiRegisterEndpoint,
 } from './auth-swagger.decorators';
+import { ForgotPasswordRequestDto } from './dto/forgot-password.dto';
 
 const verifiedPagePath = resolve(
   process.cwd(),
@@ -164,5 +165,12 @@ export class AuthController {
     return this.authService.emailVerificationResend(
       emailVerificationResendRequestDto,
     );
+  }
+
+  @Post('forgot-password')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  forgotPassword(@Body() forgotPasswordRequestDto: ForgotPasswordRequestDto) {
+    return this.authService.forgotPassword(forgotPasswordRequestDto);
   }
 }
