@@ -7,6 +7,7 @@ import type {
   RefreshTokenPayload,
   EmailVerificationTokenPayload,
   SignedRefreshToken,
+  PasswordResetTokenPayload,
 } from '../types/jwt-tokens';
 
 type DecodedWithExp = {
@@ -14,7 +15,7 @@ type DecodedWithExp = {
 };
 
 function hasNumericExp(value: unknown): value is DecodedWithExp {
-  if (typeof value !== 'object' && value === null) return false;
+  if (typeof value !== 'object' || value === null) return false;
   if (!Object.prototype.hasOwnProperty.call(value, 'exp')) return false;
 
   const exp = (value as Record<string, unknown>)['exp'];
@@ -57,6 +58,29 @@ export class JwtTokensService {
   async verifyEmailVerificationToken(token: string) {
     return this.jwtService.verifyAsync<EmailVerificationTokenPayload>(token, {
       secret: this.config.getOrThrow<string>('jwt.emailVerificationSecret'),
+    });
+  }
+
+  async signPasswordResetToken(sub: string) {
+    const jti = randomUUID();
+    const payload = { sub, jti };
+    const rawToken = await this.jwtService.signAsync(payload, {
+      secret: this.config.getOrThrow<string>('jwt.passwordResetSecret'),
+      expiresIn: this.config.getOrThrow<string>(
+        'jwt.passwordResetExpiresIn',
+      ) as JwtSignOptions['expiresIn'],
+    });
+    const decoded: unknown = this.jwtService.decode(rawToken);
+    if (!hasNumericExp(decoded)) {
+      throw new Error('Failed to decode password reset token');
+    }
+    const expiresAt = new Date(decoded.exp * 1000);
+    return { rawToken, jti, expiresAt };
+  }
+
+  async verifyPasswordResetToken(token: string) {
+    return this.jwtService.verifyAsync<PasswordResetTokenPayload>(token, {
+      secret: this.config.getOrThrow<string>('jwt.passwordResetSecret'),
     });
   }
 
