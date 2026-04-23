@@ -28,6 +28,7 @@ import {
   ApiAuthController,
   ApiEmailVerificationEndpoint,
   ApiEmailVerificationResendEndpoint,
+  ApiForgotPasswordEndpoint,
   ApiGetProfileEndpoint,
   ApiLoginEndpoint,
   ApiLogoutAllEndpoint,
@@ -167,6 +168,7 @@ export class AuthController {
     );
   }
 
+  @ApiForgotPasswordEndpoint()
   @Post('forgot-password')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')

@@ -23,6 +23,7 @@ import { LogoutAllResponseDto } from './dto/logoutAll.dto';
 import { RefreshResponseDto } from './dto/refresh.dto';
 import { RegisterResponseDto } from './dto/register.dto';
 import { EmailVerificationResendResponseDto } from './dto/email-verification-resend.dto';
+import { ForgotPasswordResponseDto } from './dto/forgot-password.dto';
 
 export function ApiAuthController() {
   return applyDecorators(ApiTags('auth'));
@@ -168,6 +169,21 @@ export function ApiEmailVerificationResendEndpoint() {
       description:
         'Returns a generic success response whether or not a new verification email was sent.',
       type: EmailVerificationResendResponseDto,
+    }),
+    ApiBadRequestResponse({
+      description: 'Validation failed',
+      type: ValidationErrorResponseDto,
+    }),
+  );
+}
+
+export function ApiForgotPasswordEndpoint() {
+  return applyDecorators(
+    ApiOperation({ summary: 'Request a password reset link' }),
+    ApiOkResponse({
+      description:
+        'Returns a generic success response whether or not a password reset email was sent.',
+      type: ForgotPasswordResponseDto,
     }),
     ApiBadRequestResponse({
       description: 'Validation failed',
