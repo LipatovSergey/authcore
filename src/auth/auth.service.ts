@@ -28,6 +28,8 @@ import {
   EmailVerificationResendRequestDto,
   EmailVerificationResendResponseDto,
 } from './dto/email-verification-resend.dto';
+import { PasswordResetTokensService } from './providers/password-reset-tokens.service';
+import { ForgotPasswordRequestDto } from './dto/forgot-password.dto';
 
 export const VERIFY_EMAIL_OUTCOME = {
   VERIFIED: 'verified',
@@ -46,6 +48,7 @@ export class AuthService implements OnModuleInit {
     private readonly jwtTokensService: JwtTokensService,
     private readonly refreshTokensService: RefreshTokensService,
     private readonly emailVerificationTokensService: EmailVerificationTokensService,
+    private readonly passwordResetTokenService: PasswordResetTokensService,
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
     private readonly mailService: MailService,
@@ -119,6 +122,58 @@ export class AuthService implements OnModuleInit {
       email,
       verificationLink.toString(),
     );
+  }
+
+  async forgotPassword(input: ForgotPasswordRequestDto) {
+    const { email } = input;
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      return { message: 'ok' };
+    }
+    // sign password reset token
+    const signedPasswordResetToken =
+      await this.jwtTokensService.signPasswordResetToken(user.id);
+    // open transaction
+    await this.dataSource.transaction(async (manager) => {
+      await this.passwordResetTokenService.rotateWithManager(
+        {
+          ...signedPasswordResetToken,
+          userId: user.id,
+        },
+        manager,
+      );
+      if (!user.isEmailVerified) {
+        const unverifiedExpiresAt = this.calculateUnverifiedUserExpiresAt();
+        await this.usersService.refreshUnverifiedExpiresAtWithManager(
+          user.id,
+          unverifiedExpiresAt,
+          manager,
+        );
+      }
+    });
+    // build link
+    const baseUrl = this.config.getOrThrow<string>('authPublicUrl');
+    const passwordResetLink = new URL(baseUrl);
+    passwordResetLink.pathname = '/auth/reset-password';
+    passwordResetLink.searchParams.set(
+      'token',
+      signedPasswordResetToken.rawToken,
+    );
+    // send email
+    try {
+      await this.mailService.sendPasswordReset(
+        email,
+        passwordResetLink.toString(),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send password reset email after token rotation: userId=${user.id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      return { message: 'ok' };
+    }
+
+    return { message: 'ok' };
   }
 
   async emailVerificationResend(
