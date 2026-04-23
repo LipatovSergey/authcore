@@ -3,16 +3,20 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
-import { getLastEmailVerificationUrl } from '../mocks/mail-service.mock';
+import {
+  getLastEmailVerificationUrl,
+  type MailServiceMock,
+} from '../mocks/mail-service.mock';
 
 describe('/auth/refresh (POST)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
+  let mailServiceMock: MailServiceMock;
   let refreshToken: string;
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer } = await createTestApp());
+    ({ app, dataSource, httpServer, mailServiceMock } = await createTestApp());
   });
 
   afterAll(async () => {
@@ -20,6 +24,7 @@ describe('/auth/refresh (POST)', () => {
   });
 
   beforeEach(async () => {
+    mailServiceMock.reset();
     await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
     const registerResponse = await request(httpServer)
       .post('/auth/register')
@@ -29,7 +34,7 @@ describe('/auth/refresh (POST)', () => {
       });
     expect(registerResponse.statusCode).toBe(201);
 
-    const url = getLastEmailVerificationUrl();
+    const url = getLastEmailVerificationUrl(mailServiceMock);
     await request(httpServer).get(`${url.pathname}${url.search}`);
 
     const loginResponse = await request(httpServer).post('/auth/login').send({

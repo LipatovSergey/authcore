@@ -3,20 +3,25 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
-import { getLastEmailVerificationUrl } from '../mocks/mail-service.mock';
+import {
+  getLastEmailVerificationUrl,
+  type MailServiceMock,
+} from '../mocks/mail-service.mock';
 
 describe('/auth/email-verification (GET) with redirection', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
   let restoreEnv: () => void;
+  let mailServiceMock: MailServiceMock;
   let verificationToken: string;
   const redirectUrl = 'http://localhost:4000/email-verification-result';
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer, restoreEnv } = await createTestApp({
-      EMAIL_VERIFICATION_RESULT_URL: redirectUrl,
-    }));
+    ({ app, dataSource, httpServer, restoreEnv, mailServiceMock } =
+      await createTestApp({
+        EMAIL_VERIFICATION_RESULT_URL: redirectUrl,
+      }));
   });
 
   afterAll(async () => {
@@ -25,6 +30,7 @@ describe('/auth/email-verification (GET) with redirection', () => {
   });
 
   beforeEach(async () => {
+    mailServiceMock.reset();
     await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
     await request(httpServer)
       .post('/auth/register')
@@ -33,7 +39,7 @@ describe('/auth/email-verification (GET) with redirection', () => {
         password: 'some spaced text',
       })
       .expect(201);
-    const url = getLastEmailVerificationUrl();
+    const url = getLastEmailVerificationUrl(mailServiceMock);
     verificationToken = url.searchParams.get('token') as string;
   });
 

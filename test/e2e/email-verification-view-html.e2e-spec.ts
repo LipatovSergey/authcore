@@ -5,7 +5,10 @@ import { DataSource } from 'typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { Repository } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
-import { getLastEmailVerificationUrl } from '../mocks/mail-service.mock';
+import {
+  getLastEmailVerificationUrl,
+  type MailServiceMock,
+} from '../mocks/mail-service.mock';
 
 describe('/auth/email-verification (GET)', () => {
   let app: INestApplication<App>;
@@ -13,10 +16,11 @@ describe('/auth/email-verification (GET)', () => {
   let httpServer: App;
   let verificationToken: string;
   let userRepository: Repository<User>;
+  let mailServiceMock: MailServiceMock;
   const userEmail = 'tester@gmail.com';
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer } = await createTestApp());
+    ({ app, dataSource, httpServer, mailServiceMock } = await createTestApp());
     userRepository = dataSource.getRepository(User);
   });
 
@@ -25,6 +29,7 @@ describe('/auth/email-verification (GET)', () => {
   });
 
   beforeEach(async () => {
+    mailServiceMock.reset();
     await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
     await request(httpServer)
       .post('/auth/register')
@@ -33,7 +38,7 @@ describe('/auth/email-verification (GET)', () => {
         password: 'some spaced text',
       })
       .expect(201);
-    const url = getLastEmailVerificationUrl();
+    const url = getLastEmailVerificationUrl(mailServiceMock);
     verificationToken = url.searchParams.get('token') as string;
   });
 

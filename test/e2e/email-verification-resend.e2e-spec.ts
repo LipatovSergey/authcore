@@ -3,7 +3,10 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
-import { getLastEmailVerificationUrl } from '../mocks/mail-service.mock';
+import {
+  getLastEmailVerificationUrl,
+  type MailServiceMock,
+} from '../mocks/mail-service.mock';
 import { User } from 'src/users/entities/user.entity';
 import { Repository } from 'typeorm';
 
@@ -13,10 +16,11 @@ describe('/auth/email-verification/resend (POST)', () => {
   let httpServer: App;
   let firstEmailVerificatonUrl: URL;
   let userRepository: Repository<User>;
+  let mailServiceMock: MailServiceMock;
   const userEmail = 'tester@gmail.com';
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer } = await createTestApp());
+    ({ app, dataSource, httpServer, mailServiceMock } = await createTestApp());
     userRepository = dataSource.getRepository(User);
   });
 
@@ -25,6 +29,7 @@ describe('/auth/email-verification/resend (POST)', () => {
   });
 
   beforeEach(async () => {
+    mailServiceMock.reset();
     await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
     await request(httpServer)
       .post('/auth/register')
@@ -33,7 +38,7 @@ describe('/auth/email-verification/resend (POST)', () => {
         password: 'some spaced text',
       })
       .expect(201);
-    firstEmailVerificatonUrl = getLastEmailVerificationUrl();
+    firstEmailVerificatonUrl = getLastEmailVerificationUrl(mailServiceMock);
   });
 
   it('returns 200 and sends new verification link, and refreshes unverifiedExpiresAt for unverified user', async () => {
@@ -43,7 +48,8 @@ describe('/auth/email-verification/resend (POST)', () => {
     const res = await request(httpServer)
       .post('/auth/email-verification/resend')
       .send({ email: userEmail });
-    const newEmailVerificationUrl = getLastEmailVerificationUrl();
+    const newEmailVerificationUrl =
+      getLastEmailVerificationUrl(mailServiceMock);
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe('ok');
     expect(newEmailVerificationUrl.href).not.toBe(
@@ -68,7 +74,8 @@ describe('/auth/email-verification/resend (POST)', () => {
     const res = await request(httpServer)
       .post('/auth/email-verification/resend')
       .send({ email: userEmail });
-    const newEmailVerificationUrl = getLastEmailVerificationUrl();
+    const newEmailVerificationUrl =
+      getLastEmailVerificationUrl(mailServiceMock);
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe('ok');
     expect(firstEmailVerificatonUrl.href).toBe(newEmailVerificationUrl.href);
@@ -78,7 +85,8 @@ describe('/auth/email-verification/resend (POST)', () => {
     const res = await request(httpServer)
       .post('/auth/email-verification/resend')
       .send({ email: 'non-existent-user@test.com' });
-    const newEmailVerificationUrl = getLastEmailVerificationUrl();
+    const newEmailVerificationUrl =
+      getLastEmailVerificationUrl(mailServiceMock);
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe('ok');
     expect(firstEmailVerificatonUrl.href).toBe(newEmailVerificationUrl.href);

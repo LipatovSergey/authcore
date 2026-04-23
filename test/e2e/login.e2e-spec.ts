@@ -3,15 +3,19 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
-import { getLastEmailVerificationUrl } from '../mocks/mail-service.mock';
+import {
+  getLastEmailVerificationUrl,
+  type MailServiceMock,
+} from '../mocks/mail-service.mock';
 
 describe('/auth/login (POST)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
+  let mailServiceMock: MailServiceMock;
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer } = await createTestApp());
+    ({ app, dataSource, httpServer, mailServiceMock } = await createTestApp());
   });
 
   afterAll(async () => {
@@ -19,6 +23,7 @@ describe('/auth/login (POST)', () => {
   });
 
   beforeEach(async () => {
+    mailServiceMock.reset();
     await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
     await request(httpServer)
       .post('/auth/register')
@@ -27,7 +32,7 @@ describe('/auth/login (POST)', () => {
         password: 'some spaced text',
       })
       .expect(201);
-    const url = getLastEmailVerificationUrl();
+    const url = getLastEmailVerificationUrl(mailServiceMock);
     await request(httpServer).get(`${url.pathname}${url.search}`);
   });
 

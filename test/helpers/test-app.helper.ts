@@ -4,7 +4,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { MailService } from '../../src/auth/providers/mail.service';
 import type { App } from 'supertest/types';
-import { mailServiceMock } from '../mocks/mail-service.mock';
+import { createMailServiceMock } from '../mocks/mail-service.mock';
 
 export async function createTestApp(
   envOverrides?: Record<string, string | undefined>,
@@ -29,6 +29,8 @@ export async function createTestApp(
     // override values in process.env
     applyEnv(envOverrides);
   }
+
+  const mailServiceMock = createMailServiceMock();
 
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
@@ -57,6 +59,7 @@ export async function createTestApp(
     app,
     dataSource,
     httpServer,
+    mailServiceMock,
     restoreEnv,
   };
 }

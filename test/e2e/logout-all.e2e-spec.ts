@@ -3,17 +3,21 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
-import { getLastEmailVerificationUrl } from '../mocks/mail-service.mock';
+import {
+  getLastEmailVerificationUrl,
+  type MailServiceMock,
+} from '../mocks/mail-service.mock';
 
 describe('/auth/logout-all (POST)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
+  let mailServiceMock: MailServiceMock;
   let refreshToken1: string;
   let refreshToken2: string;
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer } = await createTestApp());
+    ({ app, dataSource, httpServer, mailServiceMock } = await createTestApp());
   });
 
   afterAll(async () => {
@@ -21,6 +25,7 @@ describe('/auth/logout-all (POST)', () => {
   });
 
   beforeEach(async () => {
+    mailServiceMock.reset();
     await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
     const registerResponse = await request(httpServer)
       .post('/auth/register')
@@ -30,7 +35,7 @@ describe('/auth/logout-all (POST)', () => {
       });
     expect(registerResponse.statusCode).toBe(201);
 
-    const url = getLastEmailVerificationUrl();
+    const url = getLastEmailVerificationUrl(mailServiceMock);
     await request(httpServer).get(`${url.pathname}${url.search}`);
     const loginResponse1 = await request(httpServer).post('/auth/login').send({
       email: 'tester@gmail.com',
