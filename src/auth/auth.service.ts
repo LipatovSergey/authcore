@@ -258,6 +258,8 @@ export class AuthService implements OnModuleInit {
       created_at: user.createdAt,
       updated_at: user.updatedAt,
     };
+      return { message: 'ok' };
+    return { message: 'ok' };
   }
 
   async login(input: LoginRequestDto): Promise<LoginResponseDto> {

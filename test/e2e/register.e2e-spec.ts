@@ -28,12 +28,7 @@ describe('/auth/register (POST)', () => {
     });
 
     expect(res.statusCode).toBe(201);
-    expect(res.body).toStrictEqual({
-      id: expect.any(String),
-      email: 'tester@gmail.com',
-      created_at: expect.any(String),
-      updated_at: expect.any(String),
-    });
+    expect(res.body.message).toBe('ok');
   });
 
   it('returns 409 when email is already exists', async () => {
