@@ -4,7 +4,6 @@ import {
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
-  ApiFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
@@ -143,7 +142,7 @@ export function ApiEmailVerificationEndpoint() {
     ApiOperation({
       summary: 'Verify email by token',
       description:
-        'Verifies the email verification token. Returns a built-in HTML result page by default, or redirects to the configured client result URL when redirect mode is enabled.',
+        'Verifies the email verification token. Redirects to the configured client result URL.',
     }),
     ApiQuery({
       name: 'token',
@@ -152,10 +151,6 @@ export function ApiEmailVerificationEndpoint() {
       type: String,
     }),
     ApiOkResponse({
-      description:
-        'Returns one of the built-in HTML result pages for verified, already verified, or invalid token outcomes when client redirect is not configured.',
-    }),
-    ApiFoundResponse({
       description:
         'Redirects to the configured client result URL with ?status=verified, ?status=already_verified, or ?status=invalid.',
     }),

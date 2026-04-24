@@ -12,20 +12,15 @@ describe('/auth/email-verification (GET) with redirection', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
-  let restoreEnv: () => void;
   let mailServiceMock: MailServiceMock;
   let verificationToken: string;
   const redirectUrl = 'http://localhost:4000/email-verification-result';
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer, restoreEnv, mailServiceMock } =
-      await createTestApp({
-        EMAIL_VERIFICATION_RESULT_URL: redirectUrl,
-      }));
+    ({ app, dataSource, httpServer, mailServiceMock } = await createTestApp());
   });
 
   afterAll(async () => {
-    restoreEnv();
     await app.close();
   });
 
@@ -74,5 +69,22 @@ describe('/auth/email-verification (GET) with redirection', () => {
     const location = new URL(res.headers.location);
     expect(location.searchParams.get('status')).toBe('invalid');
     expect(`${location.origin}${location.pathname}`).toBe(redirectUrl);
+  });
+
+  it('returns 400 if query input invalid', async () => {
+    const res = await request(httpServer).get(
+      `/auth/email-verification?token=invalid`,
+    );
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('Bad Request');
+  });
+
+  it('returns 401 when login attempted before verification', async () => {
+    const res = await request(httpServer).post('/auth/login').send({
+      email: 'tester@gmail.com',
+      password: 'some spaced text',
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Email is not verified');
   });
 });

@@ -10,7 +10,7 @@ import {
   Query,
   Res,
 } from '@nestjs/common';
-import { AuthService, VERIFY_EMAIL_OUTCOME } from './auth.service';
+import { AuthService } from './auth.service';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
 import { LoginRequestDto } from './dto/login.dto';
 import { RefreshRequestDto } from './dto/refresh.dto';
@@ -22,7 +22,6 @@ import { Throttle } from '@nestjs/throttler';
 import { VerifyEmailQueryDto } from './dto/email-verification.dto';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
-import { resolve } from 'node:path';
 import { EmailVerificationResendRequestDto } from './dto/email-verification-resend.dto';
 import {
   ApiAuthController,
@@ -37,28 +36,6 @@ import {
   ApiRegisterEndpoint,
 } from './auth-swagger.decorators';
 import { ForgotPasswordRequestDto } from './dto/forgot-password.dto';
-
-const verifiedPagePath = resolve(
-  process.cwd(),
-  'src',
-  'auth',
-  'pages',
-  'verified.html',
-);
-const alreadyVerifiedPagePath = resolve(
-  process.cwd(),
-  'src',
-  'auth',
-  'pages',
-  'already-verified.html',
-);
-const verificationFailedPagePath = resolve(
-  process.cwd(),
-  'src',
-  'auth',
-  'pages',
-  'verification-failed.html',
-);
 
 @ApiAuthController()
 @Controller('auth')
@@ -129,30 +106,17 @@ export class AuthController {
     @Query() query: VerifyEmailQueryDto,
     @Res() res: Response,
   ) {
-    const customResultUrl = this.config.get<string>(
+    const customResultUrl = this.config.getOrThrow<string>(
       'emailVerificationResultUrl',
     );
+    const redirectUrl = new URL(customResultUrl);
     try {
       const outcome = await this.authService.verifyEmail(query.token);
-      if (customResultUrl) {
-        const redirectUrl = new URL(customResultUrl);
-        redirectUrl.searchParams.set('status', outcome);
-        return res.redirect(redirectUrl.toString());
-      }
-
-      if (outcome === VERIFY_EMAIL_OUTCOME.ALREADY_VERIFIED) {
-        return res.sendFile(alreadyVerifiedPagePath);
-      }
-
-      return res.sendFile(verifiedPagePath);
+      redirectUrl.searchParams.set('status', outcome);
     } catch (_error) {
-      if (customResultUrl) {
-        const redirectUrl = new URL(customResultUrl);
-        redirectUrl.searchParams.set('status', 'invalid');
-        return res.redirect(redirectUrl.toString());
-      }
-      return res.sendFile(verificationFailedPagePath);
+      redirectUrl.searchParams.set('status', 'invalid');
     }
+    return res.redirect(redirectUrl.toString());
   }
 
   @ApiEmailVerificationResendEndpoint()

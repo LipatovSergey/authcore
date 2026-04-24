@@ -41,7 +41,8 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
 
         THROTTLE_DEFAULT_LIMIT: Joi.number().integer().positive().required(),
         THROTTLE_DEFAULT_TTL_MS: Joi.number().integer().positive().required(),
-        EMAIL_VERIFICATION_RESULT_URL: Joi.string().optional(),
+
+        EMAIL_VERIFICATION_RESULT_URL: Joi.string().required(),
 
         UNVERIFIED_USERS_CLEANUP_CRON: Joi.string().required(),
         UNVERIFIED_USERS_CLEANUP_TIMEZONE: Joi.string().required(),
