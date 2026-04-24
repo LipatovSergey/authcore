@@ -20,8 +20,6 @@ import { LogoutAllRequestDto, LogoutAllResponseDto } from './dto/logoutAll.dto';
 import { GetProfileResponseDto } from './dto/get-profile.dto';
 import { EmailVerificationTokensService } from './providers/email-verification-tokens.service';
 import { DataSource } from 'typeorm';
-import { User } from '../users/entities/user.entity';
-import { EmailVerificationToken } from './entities/email-verification-token.entity';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from './providers/mail.service';
 import {
@@ -243,22 +241,49 @@ export class AuthService implements OnModuleInit {
     const passwordHash = await this.secureHasher.hash(input.password);
     const unverifiedExpiresAt = this.calculateUnverifiedUserExpiresAt();
 
-    const user = await this.usersService.createUser({
-      email: input.email,
-      passwordHash,
-      unverifiedExpiresAt,
-    });
+    const { user, signedEmailVerificationToken } =
+      await this.dataSource.transaction(async (manager) => {
+        const user = await this.usersService.createUserWithManager(
+          {
+            email: input.email,
+            passwordHash,
+            unverifiedExpiresAt,
+          },
+          manager,
+        );
+        const signedEmailVerificationToken =
+          await this.jwtTokensService.signEmailVerificationToken(user.id);
 
-    await this.sendEmailVerification(user.id, user.email);
-
-    this.logger.log(`User registered: email=${user.email} userId=${user.id}`);
-    return {
-      id: user.id,
-      email: user.email,
-      created_at: user.createdAt,
-      updated_at: user.updatedAt,
-    };
+        await this.emailVerificationTokensService.setActiveTokenWithManager(
+          {
+            ...signedEmailVerificationToken,
+            userId: user.id,
+          },
+          manager,
+        );
+        return { user, signedEmailVerificationToken };
+      });
+    // create email verification link
+    const baseUrl = this.config.getOrThrow<string>('authPublicUrl');
+    const verificationLink = new URL(baseUrl);
+    verificationLink.pathname = '/auth/email-verification';
+    verificationLink.searchParams.set(
+      'token',
+      signedEmailVerificationToken.rawToken,
+    );
+    // send email
+    try {
+      await this.mailService.sendEmailVerification(
+        user.email,
+        verificationLink.toString(),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send email for email verification: userId=${user.id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
       return { message: 'ok' };
+    }
     return { message: 'ok' };
   }
 

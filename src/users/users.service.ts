@@ -14,15 +14,19 @@ export class UsersService {
 
   private readonly logger = new Logger(UsersService.name);
 
-  async createUser(input: CreateUserInput): Promise<User> {
-    const user = this.repo.create({
+  async createUserWithManager(
+    input: CreateUserInput,
+    manager: EntityManager,
+  ): Promise<User> {
+    const repo = manager.getRepository(User);
+    const user = repo.create({
       email: input.email,
       passwordHash: input.passwordHash,
       unverifiedExpiresAt: input.unverifiedExpiresAt,
     });
 
     try {
-      return await this.repo.save(user);
+      return await repo.save(user);
     } catch (error) {
       if (
         isPostgresErrorLike(error) &&
@@ -36,19 +40,6 @@ export class UsersService {
       }
       throw error;
     }
-  }
-
-  async refreshUnverifiedExpiresAt(
-    id: string,
-    unverifiedExpiresAt: Date,
-  ): Promise<void> {
-    await this.repo.manager.transaction(async (manager) => {
-      await this.refreshUnverifiedExpiresAtWithManager(
-        id,
-        unverifiedExpiresAt,
-        manager,
-      );
-    });
   }
 
   async refreshUnverifiedExpiresAtWithManager(
