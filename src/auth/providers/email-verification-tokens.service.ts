@@ -51,7 +51,7 @@ export class EmailVerificationTokensService {
     await repo.update(id, { usedAt: now });
   }
 
-  async rotateWithManager(
+  async setActiveTokenWithManager(
     input: CreateEmailVerificationTokenInput,
     manager: EntityManager,
   ): Promise<void> {
@@ -71,27 +71,6 @@ export class EmailVerificationTokensService {
       expiresAt,
     });
     await repo.save(tokenRecord);
-  }
-
-  async create(input: CreateEmailVerificationTokenInput): Promise<void> {
-    const { rawToken, jti, userId, expiresAt } = input;
-    const tokenHash = await this.secureHasher.hash(rawToken);
-    const tokenRecord = this.repo.create({
-      tokenHash,
-      jti,
-      userId,
-      expiresAt,
-    });
-
-    // save new token and revoke all unused tokens
-    await this.repo.manager.transaction(async (manager) => {
-      const txRepo = manager.getRepository(EmailVerificationToken);
-      await txRepo.update(
-        { userId, revokedAt: IsNull(), usedAt: IsNull() },
-        { revokedAt: new Date() },
-      );
-      await txRepo.save(tokenRecord);
-    });
   }
 
   async validateOrThrow(rawToken: string) {

@@ -95,29 +95,6 @@ export class AuthService implements OnModuleInit {
     return VERIFY_EMAIL_OUTCOME.VERIFIED;
   }
 
-  private async sendEmailVerification(userId: string, email: string) {
-    const signedEmailVerificationToken =
-      await this.jwtTokensService.signEmailVerificationToken(userId);
-
-    await this.emailVerificationTokensService.create({
-      ...signedEmailVerificationToken,
-      userId,
-    });
-
-    // create email verification link
-    const baseUrl = this.config.getOrThrow<string>('authPublicUrl');
-    const verificationLink = new URL(baseUrl);
-    verificationLink.pathname = '/auth/email-verification';
-    verificationLink.searchParams.set(
-      'token',
-      signedEmailVerificationToken.rawToken,
-    );
-    await this.mailService.sendEmailVerification(
-      email,
-      verificationLink.toString(),
-    );
-  }
-
   async emailVerificationResend(
     input: EmailVerificationResendRequestDto,
   ): Promise<EmailVerificationResendResponseDto> {
@@ -144,7 +121,7 @@ export class AuthService implements OnModuleInit {
         return;
       }
 
-      await this.emailVerificationTokensService.rotateWithManager(
+      await this.emailVerificationTokensService.setActiveTokenWithManager(
         {
           ...signedEmailVerificationToken,
           userId: user.id,
@@ -153,6 +130,7 @@ export class AuthService implements OnModuleInit {
       );
       shouldSendEmail = true;
     });
+
     if (!shouldSendEmail) {
       return { message: 'ok' };
     }
