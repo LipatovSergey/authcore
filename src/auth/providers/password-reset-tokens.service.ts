@@ -42,7 +42,7 @@ export class PasswordResetTokensService {
     return this.repo.findOneBy({ jti });
   }
 
-  async rotateWithManager(
+  async setActiveTokenWithManager(
     input: CreatePasswordResetTokenInput,
     manager: EntityManager,
   ) {

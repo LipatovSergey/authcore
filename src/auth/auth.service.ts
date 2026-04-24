@@ -169,7 +169,7 @@ export class AuthService implements OnModuleInit {
       await this.jwtTokensService.signPasswordResetToken(user.id);
     // open transaction
     await this.dataSource.transaction(async (manager) => {
-      await this.passwordResetTokenService.rotateWithManager(
+      await this.passwordResetTokenService.setActiveTokenWithManager(
         {
           ...signedPasswordResetToken,
           userId: user.id,
