@@ -34,8 +34,10 @@ import {
   ApiLogoutEndpoint,
   ApiRefreshEndpoint,
   ApiRegisterEndpoint,
+  ApiResetPasswordEndpoint,
 } from './auth-swagger.decorators';
 import { ForgotPasswordRequestDto } from './dto/forgot-password.dto';
+import { ResetPasswordRequestDto } from './dto/reset-password.dto';
 
 @ApiAuthController()
 @Controller('auth')
@@ -138,5 +140,13 @@ export class AuthController {
   @Header('Cache-Control', 'no-store')
   forgotPassword(@Body() forgotPasswordRequestDto: ForgotPasswordRequestDto) {
     return this.authService.forgotPassword(forgotPasswordRequestDto);
+  }
+
+  @ApiResetPasswordEndpoint()
+  @Post('reset-password')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  resetPassword(@Body() resetPasswordRequestDto: ResetPasswordRequestDto) {
+    return this.authService.resetPassword(resetPasswordRequestDto);
   }
 }

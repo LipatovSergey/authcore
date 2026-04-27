@@ -28,6 +28,10 @@ import {
 } from './dto/email-verification-resend.dto';
 import { PasswordResetTokensService } from './providers/password-reset-tokens.service';
 import { ForgotPasswordRequestDto } from './dto/forgot-password.dto';
+import {
+  ResetPasswordRequestDto,
+  ResetPasswordResponseDto,
+} from './dto/reset-password.dto';
 
 export const VERIFY_EMAIL_OUTCOME = {
   VERIFIED: 'verified',
@@ -155,6 +159,35 @@ export class AuthService implements OnModuleInit {
       );
       return { message: 'ok' };
     }
+    return { message: 'ok' };
+  }
+
+  async resetPassword(
+    input: ResetPasswordRequestDto,
+  ): Promise<ResetPasswordResponseDto> {
+    const tokenInstance = await this.passwordResetTokenService.validateOrThrow(
+      input.token,
+    );
+
+    const user = await this.usersService.findById(tokenInstance.userId);
+    if (!user) {
+      this.logger.warn(`Token belongs to non-existent user`);
+      throw new UnauthorizedException('Invalid password reset token');
+    }
+
+    const passwordHash = await this.secureHasher.hash(input.password);
+    await this.dataSource.transaction(async (manager) => {
+      const now = new Date();
+      await this.usersService.resetPasswordWithManager(
+        { id: user.id, passwordHash: passwordHash },
+        manager,
+      );
+      await this.passwordResetTokenService.markTokenAsUsedWithManager(
+        { id: tokenInstance.id, now },
+        manager,
+      );
+    });
+
     return { message: 'ok' };
   }
 
