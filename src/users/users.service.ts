@@ -2,7 +2,8 @@ import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, LessThan, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
-import type { CreateUserInput } from './interfaces/create-user.input';
+import type { CreateUserInput } from './types/create-user.input';
+import type { ResetPasswordInput } from './types/reset-password.input';
 import { isPostgresErrorLike } from './interfaces/utils/is-postgres-db-error.util';
 
 @Injectable()
@@ -39,6 +40,18 @@ export class UsersService {
         throw new ConflictException('Email already exists');
       }
       throw error;
+    }
+  }
+
+  async resetPasswordWithManager(
+    input: ResetPasswordInput,
+    manager: EntityManager,
+  ) {
+    const repo = manager.getRepository(User);
+    const { id, passwordHash } = input;
+    const { affected } = await repo.update(id, { passwordHash });
+    if (affected !== 1) {
+      throw new Error('Failed to reset password: user was not updated');
     }
   }
 
