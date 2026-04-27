@@ -4,3 +4,8 @@ export interface CreatePasswordResetTokenInput {
   userId: string;
   expiresAt: Date;
 }
+
+export interface MarkTokenAsUsedInput {
+  id: string;
+  now: Date;
+}

@@ -11,7 +11,10 @@ import {
   type SecureHasher,
 } from '../interfaces/secure-hasher.interface';
 import { EntityManager, IsNull, Repository } from 'typeorm';
-import { CreatePasswordResetTokenInput } from '../types/password-reset-tokens';
+import {
+  CreatePasswordResetTokenInput,
+  MarkTokenAsUsedInput,
+} from '../types/password-reset-tokens';
 import { JwtTokensService } from './jwt-tokens.service';
 import { PasswordResetTokenPayload } from '../types/jwt-tokens';
 
@@ -40,6 +43,20 @@ export class PasswordResetTokensService {
 
   private async findByJti(jti: string): Promise<PasswordResetToken | null> {
     return this.repo.findOneBy({ jti });
+  }
+
+  async markTokenAsUsedWithManager(
+    input: MarkTokenAsUsedInput,
+    manager: EntityManager,
+  ): Promise<void> {
+    const { id, now } = input;
+    const repo = manager.getRepository(PasswordResetToken);
+    const { affected } = await repo.update(id, { usedAt: now });
+    if (affected !== 1) {
+      throw new Error(
+        'Failed to mark password reset token as used: token was not updated',
+      );
+    }
   }
 
   async setActiveTokenWithManager(
