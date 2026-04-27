@@ -48,7 +48,12 @@ export class EmailVerificationTokensService {
     manager: EntityManager,
   ): Promise<void> {
     const repo = manager.getRepository(EmailVerificationToken);
-    await repo.update(id, { usedAt: now });
+    const { affected } = await repo.update(id, { usedAt: now });
+    if (affected !== 1) {
+      throw new Error(
+        'Failed to mark email verification token as used: token was not updated',
+      );
+    }
   }
 
   async setActiveTokenWithManager(
