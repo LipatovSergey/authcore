@@ -31,7 +31,7 @@ export class EmailVerificationTokensService {
     rawToken: string,
   ): Promise<EmailVerificationTokenPayload> {
     try {
-      return this.jwtTokenService.verifyEmailVerificationToken(rawToken);
+      return await this.jwtTokenService.verifyEmailVerificationToken(rawToken);
     } catch (_error) {
       this.logger.warn('Invalid email verification token');
       throw new UnauthorizedException('Invalid email verification token');

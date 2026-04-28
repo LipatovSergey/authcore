@@ -34,7 +34,7 @@ export class PasswordResetTokensService {
     rawToken: string,
   ): Promise<PasswordResetTokenPayload> {
     try {
-      return this.jwtTokenService.verifyPasswordResetToken(rawToken);
+      return await this.jwtTokenService.verifyPasswordResetToken(rawToken);
     } catch (_error) {
       this.logger.warn('Invalid password reset token');
       throw new UnauthorizedException('Invalid password reset token');
