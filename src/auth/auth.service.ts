@@ -219,7 +219,7 @@ export class AuthService implements OnModuleInit {
       }
     });
     // build link
-    const baseUrl = this.config.getOrThrow<string>('authPublicUrl');
+    const baseUrl = this.config.getOrThrow<string>('passwordResetPageUrl');
     const passwordResetLink = new URL(baseUrl);
     passwordResetLink.pathname = '/auth/reset-password';
     passwordResetLink.searchParams.set(

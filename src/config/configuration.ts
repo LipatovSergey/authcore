@@ -30,6 +30,7 @@ export default () => ({
   },
 
   emailVerificationResultUrl: process.env.EMAIL_VERIFICATION_RESULT_URL,
+  passwordResetPageUrl: process.env.PASSWORD_RESET_PAGE_URL,
   authPublicUrl: process.env.AUTH_PUBLIC_URL,
 
   unverifiedUserTtlMs: Number(process.env.UNVERIFIED_USER_TTL_MS),
