@@ -34,6 +34,7 @@ export function createMailServiceMock(): MailServiceMock {
       return Promise.resolve();
     });
   };
+
   mock.reset = () => {
     mock.lastEmailVerificationLink = null;
     mock.lastPasswordResetLink = null;
@@ -57,6 +58,20 @@ export const getLastEmailVerificationUrl = (
   }
 
   const url = new URL(verificationLink);
+  if (!url.searchParams.get('token')) {
+    throw new Error('Invalid verification link');
+  }
+
+  return url;
+};
+
+export const getLastResetPasswordUrl = (mailServiceMock: MailServiceMock) => {
+  const passwordResetLink = mailServiceMock.lastPasswordResetLink;
+  if (!passwordResetLink) {
+    throw new Error('Password reset link was not captured by mailServiceMock');
+  }
+
+  const url = new URL(passwordResetLink);
   if (!url.searchParams.get('token')) {
     throw new Error('Invalid verification link');
   }
