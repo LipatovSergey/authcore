@@ -5,19 +5,19 @@ import { DataSource } from 'typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { Repository } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
-import type { MailServiceMock } from '../mocks/mail-service.mock';
+import type { NotificationsServiceMock } from '../mocks/notifications-service.mock';
 
 describe('/auth/email-verification (GET)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
   let userRepository: Repository<User>;
-  let mailServiceMock: MailServiceMock;
+  let notificationsServiceMock: NotificationsServiceMock;
   const userEmail = 'tester@gmail.com';
   const endpoint = '/auth/forgot-password';
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer, mailServiceMock } = await createTestApp());
+    ({ app, dataSource, httpServer, notificationsServiceMock } = await createTestApp());
     userRepository = dataSource.getRepository(User);
   });
 
@@ -26,7 +26,7 @@ describe('/auth/email-verification (GET)', () => {
   });
 
   beforeEach(async () => {
-    mailServiceMock.reset();
+    notificationsServiceMock.reset();
     await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
     await request(httpServer)
       .post('/auth/register')
@@ -62,7 +62,7 @@ describe('/auth/email-verification (GET)', () => {
   });
 
   it('returns 200 with ok message, even if mail sending failed', async () => {
-    mailServiceMock.sendPasswordReset.mockRejectedValueOnce(
+    notificationsServiceMock.sendPasswordReset.mockRejectedValueOnce(
       new Error('Password reset email failed'),
     );
     const res = await request(httpServer)

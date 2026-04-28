@@ -5,18 +5,18 @@ import { DataSource } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
 import {
   getLastEmailVerificationUrl,
-  type MailServiceMock,
-} from '../mocks/mail-service.mock';
+  type NotificationsServiceMock,
+} from '../mocks/notifications-service.mock';
 
 describe('/auth/refresh (POST)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
-  let mailServiceMock: MailServiceMock;
+  let notificationsServiceMock: NotificationsServiceMock;
   let refreshToken: string;
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer, mailServiceMock } = await createTestApp());
+    ({ app, dataSource, httpServer, notificationsServiceMock } = await createTestApp());
   });
 
   afterAll(async () => {
@@ -24,7 +24,7 @@ describe('/auth/refresh (POST)', () => {
   });
 
   beforeEach(async () => {
-    mailServiceMock.reset();
+    notificationsServiceMock.reset();
     await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
     const registerResponse = await request(httpServer)
       .post('/auth/register')
@@ -34,7 +34,7 @@ describe('/auth/refresh (POST)', () => {
       });
     expect(registerResponse.statusCode).toBe(201);
 
-    const url = getLastEmailVerificationUrl(mailServiceMock);
+    const url = getLastEmailVerificationUrl(notificationsServiceMock);
     await request(httpServer).get(`${url.pathname}${url.search}`);
 
     const loginResponse = await request(httpServer).post('/auth/login').send({

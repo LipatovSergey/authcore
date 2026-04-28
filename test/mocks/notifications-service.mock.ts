@@ -1,25 +1,25 @@
-import type { MailServiceContract } from '../../src/auth/providers/mail.service';
+import type { NotificationsServiceContract } from '../../src/notifications/notifications.service';
 
-export type MailServiceMock = MailServiceContract & {
+export type NotificationsServiceMock = NotificationsServiceContract & {
   lastEmailVerificationLink: string | null;
   lastPasswordResetLink: string | null;
   sendEmailVerification: jest.MockedFunction<
-    MailServiceContract['sendEmailVerification']
+    NotificationsServiceContract['sendEmailVerification']
   >;
   sendPasswordReset: jest.MockedFunction<
-    MailServiceContract['sendPasswordReset']
+    NotificationsServiceContract['sendPasswordReset']
   >;
   reset: () => void;
 };
 
-export function createMailServiceMock(): MailServiceMock {
+export function createNotificationsServiceMock(): NotificationsServiceMock {
   const mock = {
     lastEmailVerificationLink: null,
     lastPasswordResetLink: null,
     sendEmailVerification: jest.fn(),
     sendPasswordReset: jest.fn(),
     reset: () => {},
-  } as MailServiceMock;
+  } as NotificationsServiceMock;
 
   const applyDefaultBehavior = () => {
     mock.sendEmailVerification.mockImplementation(
@@ -50,11 +50,13 @@ export function createMailServiceMock(): MailServiceMock {
 }
 
 export const getLastEmailVerificationUrl = (
-  mailServiceMock: MailServiceMock,
+  notificationsServiceMock: NotificationsServiceMock,
 ) => {
-  const verificationLink = mailServiceMock.lastEmailVerificationLink;
+  const verificationLink = notificationsServiceMock.lastEmailVerificationLink;
   if (!verificationLink) {
-    throw new Error('Verification link was not captured by mailServiceMock');
+    throw new Error(
+      'Verification link was not captured by notificationsServiceMock',
+    );
   }
 
   const url = new URL(verificationLink);
@@ -65,15 +67,19 @@ export const getLastEmailVerificationUrl = (
   return url;
 };
 
-export const getLastResetPasswordUrl = (mailServiceMock: MailServiceMock) => {
-  const passwordResetLink = mailServiceMock.lastPasswordResetLink;
+export const getLastResetPasswordUrl = (
+  notificationsServiceMock: NotificationsServiceMock,
+) => {
+  const passwordResetLink = notificationsServiceMock.lastPasswordResetLink;
   if (!passwordResetLink) {
-    throw new Error('Password reset link was not captured by mailServiceMock');
+    throw new Error(
+      'Password reset link was not captured by notificationsServiceMock',
+    );
   }
 
   const url = new URL(passwordResetLink);
   if (!url.searchParams.get('token')) {
-    throw new Error('Invalid verification link');
+    throw new Error('Invalid password reset link');
   }
 
   return url;

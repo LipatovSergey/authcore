@@ -12,10 +12,10 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { RefreshTokensService } from './providers/refresh-tokens.service';
 import { EmailVerificationTokensService } from './providers/email-verification-tokens.service';
 import { EmailVerificationToken } from './entities/email-verification-token.entity';
-import { MailService } from './providers/mail.service';
 import { UnverifiedUsersCleanupService } from './providers/unverified-users-cleanup.service';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { PasswordResetTokensService } from './providers/password-reset-tokens.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -35,6 +35,7 @@ import { PasswordResetTokensService } from './providers/password-reset-tokens.se
       EmailVerificationToken,
       PasswordResetToken,
     ]),
+    NotificationsModule,
   ],
   controllers: [AuthController],
   providers: [
@@ -43,7 +44,6 @@ import { PasswordResetTokensService } from './providers/password-reset-tokens.se
     RefreshTokensService,
     EmailVerificationTokensService,
     PasswordResetTokensService,
-    MailService,
     UnverifiedUsersCleanupService,
     { provide: SECURE_HASHER, useClass: Argon2PasswordHasher },
   ],

@@ -5,20 +5,21 @@ import { DataSource } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
 import {
   getLastResetPasswordUrl,
-  type MailServiceMock,
-} from '../mocks/mail-service.mock';
+  type NotificationsServiceMock,
+} from '../mocks/notifications-service.mock';
 
 describe('/auth/reset-password (POST)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
-  let mailServiceMock: MailServiceMock;
+  let notificationsServiceMock: NotificationsServiceMock;
   let passwordResetToken: string;
   const endpoint = '/auth/reset-password';
   const userEmail = 'tester@gmail.com';
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer, mailServiceMock } = await createTestApp());
+    ({ app, dataSource, httpServer, notificationsServiceMock } =
+      await createTestApp());
   });
 
   afterAll(async () => {
@@ -26,7 +27,7 @@ describe('/auth/reset-password (POST)', () => {
   });
 
   beforeEach(async () => {
-    mailServiceMock.reset();
+    notificationsServiceMock.reset();
     await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
     await request(httpServer)
       .post('/auth/register')
@@ -39,7 +40,7 @@ describe('/auth/reset-password (POST)', () => {
       .post('/auth/forgot-password')
       .send({ email: userEmail })
       .expect(200);
-    const url = getLastResetPasswordUrl(mailServiceMock);
+    const url = getLastResetPasswordUrl(notificationsServiceMock);
     passwordResetToken = url.searchParams.get('token') as string;
   });
 

@@ -21,7 +21,6 @@ import { GetProfileResponseDto } from './dto/get-profile.dto';
 import { EmailVerificationTokensService } from './providers/email-verification-tokens.service';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { MailService } from './providers/mail.service';
 import {
   EmailVerificationResendRequestDto,
   EmailVerificationResendResponseDto,
@@ -32,6 +31,7 @@ import {
   ResetPasswordRequestDto,
   ResetPasswordResponseDto,
 } from './dto/reset-password.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export const VERIFY_EMAIL_OUTCOME = {
   VERIFIED: 'verified',
@@ -53,7 +53,7 @@ export class AuthService implements OnModuleInit {
     private readonly passwordResetTokenService: PasswordResetTokensService,
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
-    private readonly mailService: MailService,
+    private readonly notificationService: NotificationsService,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -148,7 +148,7 @@ export class AuthService implements OnModuleInit {
     );
     // send email
     try {
-      await this.mailService.sendEmailVerification(
+      await this.notificationService.sendEmailVerification(
         email,
         verificationLink.toString(),
       );
@@ -228,7 +228,7 @@ export class AuthService implements OnModuleInit {
     );
     // send email
     try {
-      await this.mailService.sendPasswordReset(
+      await this.notificationService.sendPasswordReset(
         email,
         passwordResetLink.toString(),
       );
@@ -284,7 +284,7 @@ export class AuthService implements OnModuleInit {
     );
     // send email
     try {
-      await this.mailService.sendEmailVerification(
+      await this.notificationService.sendEmailVerification(
         user.email,
         verificationLink.toString(),
       );

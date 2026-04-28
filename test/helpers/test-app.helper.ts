@@ -2,9 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { MailService } from '../../src/auth/providers/mail.service';
+import { NotificationsService } from '../../src/notifications/notifications.service';
 import type { App } from 'supertest/types';
-import { createMailServiceMock } from '../mocks/mail-service.mock';
+import { createNotificationsServiceMock } from '../mocks/notifications-service.mock';
 
 export async function createTestApp(
   envOverrides?: Record<string, string | undefined>,
@@ -30,13 +30,13 @@ export async function createTestApp(
     applyEnv(envOverrides);
   }
 
-  const mailServiceMock = createMailServiceMock();
+  const notificationsServiceMock = createNotificationsServiceMock();
 
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   })
-    .overrideProvider(MailService)
-    .useValue(mailServiceMock)
+    .overrideProvider(NotificationsService)
+    .useValue(notificationsServiceMock)
     .compile();
 
   const app: INestApplication<App> = moduleFixture.createNestApplication();
@@ -59,7 +59,7 @@ export async function createTestApp(
     app,
     dataSource,
     httpServer,
-    mailServiceMock,
+    notificationsServiceMock,
     restoreEnv,
   };
 }
