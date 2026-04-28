@@ -10,8 +10,12 @@ Current MVP features:
 - Logout from current session
 - Logout from all sessions
 - Protected `GET /auth/me`
+- Email verification with client redirect flow
+- Verification resend flow
+- Password reset flow
+- Demo notifications outbox for local/manual auth flows
 - Swagger UI documentation
-- E2E coverage for auth flows and throttling
+- E2E and integration coverage for auth flows and throttling
 
 ## Stack
 
@@ -30,6 +34,7 @@ The project follows a modular layered structure:
 
 - `auth` handles controllers, DTOs, guards, token flow, and refresh token persistence
 - `users` handles user persistence and lookup
+- `notifications` handles demo notification delivery and outbox access
 - `database/migrations` stores database schema changes
 - `config` centralizes environment-based configuration
 
@@ -49,6 +54,15 @@ Available auth endpoints:
 - `POST /auth/logout`
 - `POST /auth/logout-all`
 - `GET /auth/me`
+- `GET /auth/email-verification`
+- `POST /auth/email-verification/resend`
+- `POST /auth/forgot-password`
+- `POST /auth/reset-password`
+
+Demo endpoints:
+
+- `GET /demo/notifications-outbox`
+- `DELETE /demo/notifications-outbox`
 
 Swagger UI is available at `GET /api`.
 
@@ -105,6 +119,48 @@ So the final tradeoff was:
 
 - **JWT + stateful** for better consistency, reuse of standard claims, and simpler token lookup
 - instead of **random token + stateful**, which is also valid but would introduce a second token model into the codebase
+
+## Email Verification Lifecycle Notes
+
+AuthCore creates the user record immediately during registration and keeps the account in an unverified state until the email link is confirmed.
+
+Important behavior in the current design:
+
+- login is blocked until email verification is completed
+- resend verification invalidates the previous active verification token
+- verification is handled by backend token processing followed by redirect to a configured client URL
+
+Lifecycle policy for abandoned unverified accounts:
+
+- cleanup will only consider users with `isEmailVerified = false`
+- unverified users will store their cleanup deadline in `unverifiedExpiresAt`
+- cleanup will be based on `unverifiedExpiresAt`, not on the active email verification token
+- resend verification extends `unverifiedExpiresAt`
+- password reset for unverified users also extends `unverifiedExpiresAt`
+- email verification sets `unverifiedExpiresAt = null`
+- initial cleanup TTL baseline: `7 days`
+
+The detailed reasoning for this policy is documented in [documentation/email-verification-cleanup-policy.md](documentation/email-verification-cleanup-policy.md).
+
+## Client Integration Notes
+
+AuthCore is designed as an auth backend that is meant to be used together with a separate client application.
+
+- email verification links point to the backend auth service first
+- the backend resolves verification outcome and redirects to a configured client URL
+- password reset is intended to follow the same client-driven model
+- a small demo frontend is preferred over maintaining built-in backend HTML pages for user-facing auth flows
+
+## Demo Notifications Outbox
+
+AuthCore does not send real emails in local/demo mode. Verification and password reset messages are stored in an in-memory notifications outbox so the full auth flow can be tested without SMTP or an external email provider.
+
+Available when `ENABLE_DEMO_NOTIFICATIONS_OUTBOX=true`:
+
+- `GET /demo/notifications-outbox` returns stored demo notification messages
+- `DELETE /demo/notifications-outbox` clears the in-memory outbox
+
+The outbox is intended for local development and portfolio demos only. Messages are lost when the application restarts. A real email provider can be added later behind the same notifications service contract.
 
 ## Prerequisites
 
@@ -177,6 +233,12 @@ pnpm start:prod
 
 ## Testing
 
+Run all integration and E2E tests:
+
+```bash
+pnpm test
+```
+
 Run the main auth E2E suite:
 
 ```bash
@@ -230,6 +292,7 @@ What is documented:
 - Success response schemas
 - Standard auth and validation error response schemas
 - Bearer authentication for protected endpoints
+- Demo notifications outbox endpoints
 
 Typical manual flow in Swagger:
 
@@ -261,6 +324,9 @@ Implemented:
 
 - Core auth endpoints
 - Refresh token rotation with DB transaction
+- Email verification and resend
+- Password reset
+- Demo notifications outbox
 - Protected profile endpoint
 - Global and route-level throttling
 - Swagger documentation
