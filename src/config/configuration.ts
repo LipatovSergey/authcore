@@ -33,5 +33,7 @@ export default () => ({
   passwordResetPageUrl: process.env.PASSWORD_RESET_PAGE_URL,
   authPublicUrl: process.env.AUTH_PUBLIC_URL,
 
+  demoNotificationsOutboxEnabled:
+    process.env.ENABLE_DEMO_NOTIFICATIONS_OUTBOX === 'true',
   unverifiedUserTtlMs: Number(process.env.UNVERIFIED_USER_TTL_MS),
 });

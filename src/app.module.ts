@@ -7,6 +7,7 @@ import * as Joi from 'joi';
 import configuration from './config/configuration';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { NotificationsModule } from './notifications/notifications.module';
 
 const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
 
@@ -47,6 +48,7 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
 
         UNVERIFIED_USER_TTL_MS: Joi.number().integer().positive().required(),
 
+        ENABLE_DEMO_NOTIFICATIONS_OUTBOX: Joi.boolean().required(),
         PORT: Joi.number().integer().positive().optional(),
         NODE_ENV: Joi.string().optional(),
       }),
@@ -81,6 +83,8 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
     ScheduleModule.forRoot(),
 
     AuthModule,
+
+    NotificationsModule,
   ],
   providers: [
     {
