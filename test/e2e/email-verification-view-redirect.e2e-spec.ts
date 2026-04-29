@@ -7,6 +7,7 @@ import {
   getLastEmailVerificationUrl,
   type NotificationsServiceMock,
 } from '../mocks/notifications-service.mock';
+import { ConfigService } from '@nestjs/config';
 
 describe('/auth/email-verification (GET) with redirection', () => {
   let app: INestApplication<App>;
@@ -14,11 +15,15 @@ describe('/auth/email-verification (GET) with redirection', () => {
   let httpServer: App;
   let notificationsServiceMock: NotificationsServiceMock;
   let verificationToken: string;
-  const redirectUrl = 'http://localhost:4000/email-verification-result';
+  let redirectUrl: string;
 
   beforeAll(async () => {
     ({ app, dataSource, httpServer, notificationsServiceMock } =
       await createTestApp());
+    const configService = app.get(ConfigService);
+    redirectUrl = configService.getOrThrow<string>(
+      'emailVerificationResultUrl',
+    );
   });
 
   afterAll(async () => {

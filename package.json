@@ -1,10 +1,10 @@
 {
   "name": "authcore",
-  "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "version": "1.1.0",
+  "description": "NestJS authentication service with JWT auth, refresh token rotation, email verification, password reset, and demo notification outbox.",
+  "author": "Lipatov Sergey",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

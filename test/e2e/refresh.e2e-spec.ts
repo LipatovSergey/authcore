@@ -16,7 +16,8 @@ describe('/auth/refresh (POST)', () => {
   let refreshToken: string;
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer, notificationsServiceMock } = await createTestApp());
+    ({ app, dataSource, httpServer, notificationsServiceMock } =
+      await createTestApp());
   });
 
   afterAll(async () => {

@@ -17,7 +17,8 @@ describe('/auth/email-verification (GET)', () => {
   const endpoint = '/auth/forgot-password';
 
   beforeAll(async () => {
-    ({ app, dataSource, httpServer, notificationsServiceMock } = await createTestApp());
+    ({ app, dataSource, httpServer, notificationsServiceMock } =
+      await createTestApp());
     userRepository = dataSource.getRepository(User);
   });
 

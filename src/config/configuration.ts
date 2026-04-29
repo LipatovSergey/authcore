@@ -29,6 +29,7 @@ export default () => ({
     ttlMs: Number(process.env.THROTTLE_DEFAULT_TTL_MS),
   },
 
+  frontendOrigin: process.env.FRONTEND_ORIGIN,
   emailVerificationResultUrl: process.env.EMAIL_VERIFICATION_RESULT_URL,
   passwordResetPageUrl: process.env.PASSWORD_RESET_PAGE_URL,
   authPublicUrl: process.env.AUTH_PUBLIC_URL,

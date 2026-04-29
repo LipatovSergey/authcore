@@ -2,9 +2,15 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const config = app.get(ConfigService);
+
+  app.enableCors({
+    origin: config.getOrThrow<string>('frontendOrigin'),
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -17,8 +23,8 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Authcore')
     .setDescription('The Authcore API description')
-    .setVersion('MVP')
-    .addBasicAuth(
+    .setVersion('1.1.0')
+    .addBearerAuth(
       {
         type: 'http',
         scheme: 'bearer',

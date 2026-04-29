@@ -74,6 +74,16 @@ Swagger UI is available at `GET /api`.
 - Refresh flow uses token rotation
 - Rotation is hardened with an atomic database transaction
 
+## Security Notes / Tradeoffs
+
+- Email verification and password reset tokens use JWT as the transport format, but remain stateful through database records.
+- Raw verification and reset tokens are never stored directly; only token hashes are persisted.
+- Verification and reset flows keep only one active token per user by revoking the previous active token before creating a new one.
+- `POST /auth/forgot-password` always returns `{ "message": "ok" }` to avoid leaking whether an email is registered.
+- Password reset is allowed for unverified users, but it never verifies the email automatically.
+- Login remains blocked until email verification is completed, even after a successful password reset.
+- Unverified account cleanup is based on `unverifiedExpiresAt`, not on active token existence.
+
 ## Why Email Verification Also Uses JWT
 
 Email verification in this project is intentionally implemented with **JWT + stateful database storage**, instead of using a completely separate random-token format.
@@ -140,7 +150,7 @@ Lifecycle policy for abandoned unverified accounts:
 - email verification sets `unverifiedExpiresAt = null`
 - initial cleanup TTL baseline: `7 days`
 
-The detailed reasoning for this policy is documented in [documentation/email-verification-cleanup-policy.md](documentation/email-verification-cleanup-policy.md).
+This keeps account cleanup tied to the user lifecycle instead of token lifecycle. Verification and reset tokens can be rotated or revoked independently without changing whether an unverified account is eligible for cleanup.
 
 ## Client Integration Notes
 
