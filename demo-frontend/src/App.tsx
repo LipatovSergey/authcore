@@ -6,6 +6,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { SignInPage } from './pages/LoginPage';
 import { DemoNotificationsPage } from './pages/DemoNotificationsPage';
 import { AppLayout } from './components/AppLayout';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<SignInPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route
           path="/email-verification-result"
