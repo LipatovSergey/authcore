@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 
 type AppLayoutProps = {
   children: React.ReactNode;
@@ -8,9 +8,11 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <span className="app-brand">AuthCore Demo</span>
+        <span className="app-brand">
+          <Link to="/">AuthCore Demo</Link>
+        </span>
         <nav className="app-nav">
-          <NavLink to="/notifications">Notifications</NavLink>
+          <NavLink to="/demo-notifications">Notifications</NavLink>
         </nav>
       </header>
 

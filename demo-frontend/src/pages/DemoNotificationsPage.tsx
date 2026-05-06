@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getNotifications, type NotificationMessage } from '../api/demoApi';
+import { formatDate } from '../utils/formatDate';
 
 function getNotificationTypeLabel(type: NotificationMessage['type']): string {
   if (type === 'email_verification') {
@@ -8,13 +9,6 @@ function getNotificationTypeLabel(type: NotificationMessage['type']): string {
   if (type === 'password_reset') {
     return 'Password reset';
   }
-}
-
-function formatNotificationDate(createdAt: string) {
-  return new Intl.DateTimeFormat('en', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(createdAt));
 }
 
 export function DemoNotificationsPage() {
@@ -60,7 +54,7 @@ export function DemoNotificationsPage() {
               <div>
                 <span>{getNotificationTypeLabel(notification.type)}</span>
                 <time dateTime={notification.createdAt}>
-                  {formatNotificationDate(notification.createdAt)}
+                  {formatDate(notification.createdAt)}
                 </time>
               </div>
               <p>To: {notification.to}</p>

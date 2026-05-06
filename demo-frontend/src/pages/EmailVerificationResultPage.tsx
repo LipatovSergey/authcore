@@ -15,8 +15,8 @@ export function EmailVerificationResultPage() {
   }
 
   return (
-    <>
+    <div className="email-verification-result-page">
       <h1>{getVerificationMessage(status)}</h1>
-    </>
+    </div>
   );
 }
