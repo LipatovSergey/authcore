@@ -324,7 +324,10 @@ export class AuthService implements OnModuleInit {
       this.logger.warn(
         `Failed login attempt because email=${input.email}, is not verified`,
       );
-      throw new UnauthorizedException('Email is not verified');
+      throw new UnauthorizedException({
+        message: 'Email is not verified',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
     }
 
     const [rawAccessToken, signedRefreshToken] = await Promise.all([
