@@ -46,6 +46,11 @@ body {
   color: var(--color-text);
 }
 
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
 button,
 input {
   font: inherit;
@@ -86,7 +91,7 @@ button:hover {
 .app-nav {
   justify-self: end;
 
-  color: var(--color-text-muted);
+  color: var(--color-text);
 }
 
 .app-brand {
@@ -157,4 +162,37 @@ button:hover {
 
 .auth-card-footer {
   font-size: 14px;
+}
+
+.status-message {
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.status-message-error {
+  color: var(--color-danger);
+}
+
+.status-message-success {
+  color: var(--color-success);
+}
+
+.profile-details {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 8px 16px;
+}
+
+.profile-details dt {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.profile-details dd {
+  margin: 0;
+}
+
+.email-verification-result-page {
+  display: flex;
+  justify-content: center;
 }
