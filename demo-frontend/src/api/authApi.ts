@@ -31,20 +31,31 @@ export function login(data: LoginData) {
   });
 }
 
-interface GetMeData {
-  accessToken: string;
-}
 interface GetMeResponse {
   id: string;
   email: string;
   created_at: string;
   updated_at: string;
 }
-export function getMe(data: GetMeData) {
+export function getMe(accessToken: string) {
   return apiRequest<GetMeResponse>({
     path: '/auth/me',
     method: 'GET',
-    accessToken: data.accessToken,
+    accessToken: accessToken,
+  });
+}
+
+export interface RefreshResponse {
+  access_token: string;
+  refresh_token: string;
+}
+export function refresh(refreshToken: string) {
+  return apiRequest<RefreshResponse>({
+    path: '/auth/refresh',
+    method: 'POST',
+    body: {
+      refresh_token: refreshToken,
+    },
   });
 }
 

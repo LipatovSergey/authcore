@@ -1,9 +1,11 @@
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -42,7 +44,11 @@ export async function apiRequest<TResponse>(
   const data = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
-    throw new ApiError(response.status, data?.message ?? 'Request failed');
+    throw new ApiError(
+      response.status,
+      data?.message ?? 'Request failed',
+      data?.code,
+    );
   }
 
   return data;
