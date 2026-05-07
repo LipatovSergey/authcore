@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { register } from '../api/authApi';
+import { register, resendEmailVerification } from '../api/authApi';
 import { ApiError } from '../api/client';
 
 type StatusMessage =
@@ -9,7 +9,14 @@ type StatusMessage =
   | null;
 
 export function RegisterPage() {
-  const [statusMessage, setStatusMessage] = useState<StatusMessage>(null);
+  const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(
+    null,
+  );
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+  const [isResendingVerification, setIsResendingVerification] =
+    useState<boolean>(false);
+
   async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatusMessage(null);
@@ -32,13 +39,11 @@ export function RegisterPage() {
       setStatusMessage({ type: 'error', text: 'Passwords do not match.' });
       return;
     }
-
     try {
+      setIsLoading(true);
       await register({ email, password });
-      setStatusMessage({
-        type: 'success',
-        text: 'Successful registration, check demo notifications for verification link.',
-      });
+      setRegisteredEmail(email);
+      setIsResendingVerification(true);
     } catch (error) {
       let errorText = 'Something went wrong. Please try again later.';
       if (error instanceof ApiError) {
@@ -53,63 +58,98 @@ export function RegisterPage() {
         type: 'error',
         text: errorText,
       });
+    } finally {
+      setIsLoading(false);
     }
+  }
+
+  async function handleResendVerification() {
+    await resendEmailVerification(registeredEmail);
   }
 
   return (
     <div className="auth-page">
       <div className="auth-card">
         <h1 className="auth-title">Create account</h1>
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="form-field">
-            <label className="form-label" htmlFor="email">
-              Email
-            </label>
-            <input
-              className="form-input"
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-            />
-          </div>
-          <div className="form-field">
-            <label className="form-label" htmlFor="password">
-              Password
-            </label>
-            <input
-              className="form-input"
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-            />
-          </div>
-          <div className="form-field">
-            <label className="form-label" htmlFor="confirm-password">
-              Confirm password
-            </label>
-            <input
-              className="form-input"
-              id="confirm-password"
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-            />
-          </div>
+        {!isResendingVerification && (
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <div className="form-field">
+              <label className="form-label" htmlFor="email">
+                Email
+              </label>
+              <input
+                className="form-input"
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+              />
+            </div>
+            <div className="form-field">
+              <label className="form-label" htmlFor="password">
+                Password
+              </label>
+              <input
+                className="form-input"
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="form-field">
+              <label className="form-label" htmlFor="confirm-password">
+                Confirm password
+              </label>
+              <input
+                className="form-input"
+                id="confirm-password"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+              />
+            </div>
 
-          <button className="form-submit-button" type="submit">
-            Create account
-          </button>
-        </form>
-        {statusMessage && (
-          <p className={`status-message status-message-${statusMessage.type}`}>
-            {statusMessage.text}
-          </p>
+            <button
+              className="form-submit-button"
+              type="submit"
+              disabled={isLoading}
+            >
+              Create account
+            </button>
+            {statusMessage && (
+              <p
+                className={`status-message status-message-${statusMessage.type}`}
+              >
+                {statusMessage.text}
+              </p>
+            )}
+            {isLoading && <p>Is loading...</p>}
+            <p className="auth-card-footer">
+              Already have an account? <Link to="/login">Sign in</Link>
+            </p>
+          </form>
         )}
-        <p className="auth-card-footer">
-          Already have an account? <Link to="/login">Sign in</Link>
-        </p>
+        {isResendingVerification && (
+          <div className="verification-panel">
+            <p>
+              Successful registration. Check demo notifications for verification
+              link.
+            </p>
+            <button type="button" onClick={handleResendVerification}>
+              Resend verification link
+            </button>
+
+            <p>
+              Successful registration.A verification link has been sent. If you
+              did not receive it, you can request a new one.
+            </p>
+
+            <button type="button" className="link-button">
+              Request a new link
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -72,17 +72,16 @@ export function logout(refresh_token: string) {
   });
 }
 
-interface ForgotPasswordData {
-  email: string;
-}
 interface ForgotPasswordResponse {
   message: string;
 }
-export function forgotPassword(data: ForgotPasswordData) {
+export function forgotPassword(email: string) {
   return apiRequest<ForgotPasswordResponse>({
     path: '/auth/forgot-password',
     method: 'POST',
-    body: data,
+    body: {
+      email: email,
+    },
   });
 }
 
@@ -98,5 +97,16 @@ export function resetPassword(data: ResetPasswordData) {
     path: '/auth/reset-password',
     method: 'POST',
     body: data,
+  });
+}
+
+interface ResendEmailVerificationResponse {
+  message: string;
+}
+export function resendEmailVerification(email: string) {
+  return apiRequest<ResendEmailVerificationResponse>({
+    path: '/auth/email-verification/resend',
+    method: 'POST',
+    body: { email: email },
   });
 }
