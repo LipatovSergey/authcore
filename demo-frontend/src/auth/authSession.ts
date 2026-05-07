@@ -1,4 +1,4 @@
-import { getMe, refresh } from '../api/authApi';
+import { getMe, logout, refresh } from '../api/authApi';
 import type { RefreshResponse } from '../api/authApi';
 import { ApiError } from '../api/client';
 import {
@@ -14,6 +14,8 @@ export interface User {
   created_at: string;
   updated_at: string;
 }
+
+const defaultErrorMessage = 'Something went wrong. Please try again later.';
 
 type GetCurrentUserResult =
   | { status: 'authenticated'; user: User }
@@ -48,7 +50,7 @@ async function refreshAndLoadCurrentUser(): Promise<GetCurrentUserResult> {
     }
     return {
       status: 'error',
-      message: 'Something went wrong. Please try again later',
+      message: defaultErrorMessage,
     };
   }
 }
@@ -63,11 +65,38 @@ export async function getCurrentUser(): Promise<GetCurrentUserResult> {
     return { status: 'authenticated', user };
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
-      return await refreshAndLoadCurrentUser();
+      return refreshAndLoadCurrentUser();
     }
     return {
       status: 'error',
-      message: 'Something went wrong. Please try again later',
+      message: defaultErrorMessage,
+    };
+  }
+}
+
+type SignOutResult =
+  | { status: 'success' }
+  | { status: 'error'; message: string };
+
+export async function logoutCurrentUser(): Promise<SignOutResult> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    clearTokens();
+    return { status: 'success' };
+  }
+
+  try {
+    await logout(refreshToken);
+    clearTokens();
+    return { status: 'success' };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      clearTokens();
+      return { status: 'success' };
+    }
+    return {
+      status: 'error',
+      message: defaultErrorMessage,
     };
   }
 }

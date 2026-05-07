@@ -59,17 +59,16 @@ export function refresh(refreshToken: string) {
   });
 }
 
-interface LogoutData {
-  refresh_token: string;
-}
 interface LogoutResponse {
   message: string;
 }
-export function logout(data: LogoutData) {
+export function logout(refresh_token: string) {
   return apiRequest<LogoutResponse>({
     path: '/auth/logout',
     method: 'POST',
-    body: data,
+    body: {
+      refresh_token: refresh_token,
+    },
   });
 }
 
