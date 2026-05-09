@@ -22,7 +22,7 @@ function App() {
           path="/email-verification-result"
           element={<EmailVerificationResultPage />}
         />
-        <Route path="/demo-notifications" element={<DemoNotificationsPage />} />
+        <Route path="/notifications" element={<DemoNotificationsPage />} />
       </Routes>
     </AppLayout>
   );

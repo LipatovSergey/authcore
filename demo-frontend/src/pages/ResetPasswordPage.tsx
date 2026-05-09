@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
 import { resetPassword } from '../api/authApi';
 import { ApiError } from '../api/client';
+import { LoadingOverlay } from '../components/LoadingOverlay';
 
 type StatusMessage =
   | { type: 'success'; text: string }
@@ -68,7 +69,8 @@ export function ResetPasswordPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1 className="auth-title">Reset password</h1>
+        {isLoading && <LoadingOverlay />}
+        <h1 className="auth-card-title">Reset password</h1>
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="form-field">
             <label className="form-label" htmlFor="password">
@@ -94,21 +96,21 @@ export function ResetPasswordPage() {
               autoComplete="new-password"
             />
           </div>
-
+          {statusMessage && (
+            <p
+              className={`status-message status-message-${statusMessage.type}`}
+            >
+              {statusMessage.text}
+            </p>
+          )}
           <button
-            className="form-submit-button"
+            className="button form-submit-button"
             type="submit"
             disabled={isLoading}
           >
             Reset password
           </button>
         </form>
-        {statusMessage && (
-          <p className={`status-message status-message-${statusMessage.type}`}>
-            {statusMessage.text}
-          </p>
-        )}
-        {isLoading && <p>Is loading...</p>}
       </div>
     </div>
   );

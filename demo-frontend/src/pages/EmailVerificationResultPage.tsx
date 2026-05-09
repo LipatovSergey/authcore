@@ -11,11 +11,11 @@ export function EmailVerificationResultPage() {
       return 'Email is already verified.';
     }
 
-    return 'Verification link is invalild or expired.';
+    return 'Verification link is invalid or expired.';
   }
 
   return (
-    <div className="email-verification-result-page">
+    <div className="verification-result-page">
       <h1>{getVerificationMessage(status)}</h1>
     </div>
   );

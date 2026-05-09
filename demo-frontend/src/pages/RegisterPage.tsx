@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { register, resendEmailVerification } from '../api/authApi';
 import { ApiError } from '../api/client';
+import { LoadingOverlay } from '../components/LoadingOverlay';
 
 type StatusMessage =
   | { type: 'success'; text: string }
@@ -9,13 +10,15 @@ type StatusMessage =
   | null;
 
 export function RegisterPage() {
-  const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(
-    null,
-  );
+  const [statusMessage, setStatusMessage] = useState<StatusMessage>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
-  const [isResendingVerification, setIsResendingVerification] =
+  const [showVerificationPanel, setShowVerificationPanel] =
     useState<boolean>(false);
+  const [isRequestingVerificationLink, setIsRequestingVerificationLink] =
+    useState<boolean>(false);
+  const [verificationRequestMessage, setVerificationRequestMessage] =
+    useState<StatusMessage>(null);
 
   async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,7 +46,7 @@ export function RegisterPage() {
       setIsLoading(true);
       await register({ email, password });
       setRegisteredEmail(email);
-      setIsResendingVerification(true);
+      setShowVerificationPanel(true);
     } catch (error) {
       let errorText = 'Something went wrong. Please try again later.';
       if (error instanceof ApiError) {
@@ -64,14 +67,38 @@ export function RegisterPage() {
   }
 
   async function handleResendVerification() {
-    await resendEmailVerification(registeredEmail);
+    if (!registeredEmail) {
+      setVerificationRequestMessage({
+        type: 'error',
+        text: 'Could not request a new verification link. Please try again later.',
+      });
+      return;
+    }
+
+    try {
+      setIsRequestingVerificationLink(true);
+      setVerificationRequestMessage(null);
+      await resendEmailVerification(registeredEmail);
+      setVerificationRequestMessage({
+        type: 'success',
+        text: 'If a new verification link was created, it will appear in demo notifications.',
+      });
+    } catch {
+      setVerificationRequestMessage({
+        type: 'error',
+        text: 'Could not request a new verification link. Please try again later.',
+      });
+    } finally {
+      setIsRequestingVerificationLink(false);
+    }
   }
 
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1 className="auth-title">Create account</h1>
-        {!isResendingVerification && (
+        {(isLoading || isRequestingVerificationLink) && <LoadingOverlay />}
+        <h1 className="auth-card-title">Create account</h1>
+        {!showVerificationPanel && (
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="form-field">
               <label className="form-label" htmlFor="email">
@@ -109,14 +136,6 @@ export function RegisterPage() {
                 autoComplete="new-password"
               />
             </div>
-
-            <button
-              className="form-submit-button"
-              type="submit"
-              disabled={isLoading}
-            >
-              Create account
-            </button>
             {statusMessage && (
               <p
                 className={`status-message status-message-${statusMessage.type}`}
@@ -124,30 +143,44 @@ export function RegisterPage() {
                 {statusMessage.text}
               </p>
             )}
-            {isLoading && <p>Is loading...</p>}
+            <button
+              className="button form-submit-button"
+              type="submit"
+              disabled={isLoading}
+            >
+              Create account
+            </button>
             <p className="auth-card-footer">
-              Already have an account? <Link to="/login">Sign in</Link>
+              Already have an account?
+              <Link className="link auth-card-footer-link" to="/login">
+                Sign in
+              </Link>
             </p>
           </form>
         )}
-        {isResendingVerification && (
+        {showVerificationPanel && (
           <div className="verification-panel">
-            <p>
-              Successful registration. Check demo notifications for verification
-              link.
+            <p className="verification-panel-text">
+              Registration successful. A verification link has been created.
+              Check notifications. If you need another link, request a new one
+              below.
+              <button
+                type="button"
+                className="link link-button"
+                onClick={handleResendVerification}
+                disabled={isRequestingVerificationLink}
+              >
+                Request a new link.
+              </button>
             </p>
-            <button type="button" onClick={handleResendVerification}>
-              Resend verification link
-            </button>
 
-            <p>
-              Successful registration.A verification link has been sent. If you
-              did not receive it, you can request a new one.
-            </p>
-
-            <button type="button" className="link-button">
-              Request a new link
-            </button>
+            {verificationRequestMessage && (
+              <p
+                className={`status-message status-message-${verificationRequestMessage.type}`}
+              >
+                {verificationRequestMessage.text}
+              </p>
+            )}
           </div>
         )}
       </div>

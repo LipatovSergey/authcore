@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { forgotPassword } from '../api/authApi';
+import { LoadingOverlay } from '../components/LoadingOverlay';
 
 type StatusMessage =
   | { type: 'success'; text: string }
@@ -37,7 +38,8 @@ export function ForgotPasswordPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1 className="auth-title">Reset password</h1>
+        {isLoading && <LoadingOverlay />}
+        <h1 className="auth-card-title">Reset password</h1>
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="form-field">
             <label className="form-label" htmlFor="email">
@@ -52,19 +54,20 @@ export function ForgotPasswordPage() {
             />
           </div>
           <button
-            className="form-submit-button"
+            className="button form-submit-button"
             type="submit"
             disabled={isLoading}
           >
             Reset password
           </button>
+          {statusMessage && (
+            <p
+              className={`status-message status-message-${statusMessage.type}`}
+            >
+              {statusMessage.text}
+            </p>
+          )}
         </form>
-        {statusMessage && (
-          <p className={`status-message status-message-${statusMessage.type}`}>
-            {statusMessage.text}
-          </p>
-        )}
-        {isLoading && <p>Is loading...</p>}
       </div>
     </div>
   );

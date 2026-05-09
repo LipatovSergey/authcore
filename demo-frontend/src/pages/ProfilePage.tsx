@@ -6,6 +6,7 @@ import {
   type User,
 } from '../auth/authSession';
 import { formatDate } from '../utils/formatDate';
+import { LoadingOverlay } from '../components/LoadingOverlay';
 
 export function ProfilePage() {
   const navigate = useNavigate();
@@ -56,27 +57,29 @@ export function ProfilePage() {
   }
 
   return (
-    <div>
-      <h1>Profile</h1>
-      {isLoading && <p>Is loading...</p>}
-      {!isLoading && errorMessage && <p>{errorMessage}</p>}
-      {!isLoading && !errorMessage && userData && (
-        <dl className="profile-details">
-          <dt>Email</dt>
-          <dd>{userData.email}</dd>
-          <dt>User ID</dt>
-          <dd>{userData.id}</dd>
-          <dt>Created at:</dt>
-          <dd>{formatDate(userData.created_at)}</dd>
-          <dt>Updated at:</dt>
-          <dd>{formatDate(userData.updated_at)}</dd>
-        </dl>
-      )}
-      {userData && (
-        <button type="button" onClick={handleSignOut}>
-          Sign out
-        </button>
-      )}
+    <div className="profile-page">
+      <h1 className="profile-page-title">Profile</h1>
+      <div className="profile-card">
+        {isLoading && <LoadingOverlay />}
+        {!isLoading && errorMessage && <p>{errorMessage}</p>}
+        {!isLoading && !errorMessage && userData && (
+          <dl className="profile-details">
+            <dt>Email:</dt>
+            <dd>{userData.email}</dd>
+            <dt>User ID:</dt>
+            <dd>{userData.id}</dd>
+            <dt>Created at:</dt>
+            <dd>{formatDate(userData.created_at)}</dd>
+            <dt>Updated at:</dt>
+            <dd>{formatDate(userData.updated_at)}</dd>
+          </dl>
+        )}
+        {!isLoading && userData && (
+          <button className="button" type="button" onClick={handleSignOut}>
+            Sign out
+          </button>
+        )}
+      </div>
     </div>
   );
 }

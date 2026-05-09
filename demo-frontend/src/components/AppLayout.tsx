@@ -12,7 +12,9 @@ export function AppLayout({ children }: AppLayoutProps) {
           <Link to="/">AuthCore Demo</Link>
         </span>
         <nav className="app-nav">
-          <NavLink to="/demo-notifications">Notifications</NavLink>
+          <NavLink className="app-nav-link" to="/notifications">
+            Notifications
+          </NavLink>
         </nav>
       </header>
 
