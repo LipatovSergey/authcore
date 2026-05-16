@@ -1,5 +1,11 @@
 packages:
   - 'demo-frontend'
 
+allowBuilds:
+  '@nestjs/core': true
+  '@scarf/scarf': false
+  argon2: true
+  unrs-resolver: true
+
 onlyBuiltDependencies:
   - argon2

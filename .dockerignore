@@ -1,0 +1,14 @@
+.git
+node_modules
+demo-frontend/node_modules
+dist
+demo-frontend/dist
+coverage
+
+.env
+.env.*
+!demo-frontend/.env.local
+!.env.example
+
+Dockerfile
+docker-compose*.yml
