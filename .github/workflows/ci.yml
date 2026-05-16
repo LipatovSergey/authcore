@@ -1,0 +1,105 @@
+name: 'CI'
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: authcore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d authcore_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: authcore_test
+
+      AUTH_PUBLIC_URL: http://localhost:3000
+      FRONTEND_ORIGIN: http://localhost:5173
+      EMAIL_VERIFICATION_RESULT_URL: http://localhost:5173/email-verification-result
+      PASSWORD_RESET_PAGE_URL: http://localhost:5173/reset-password
+
+      ARGON2_MEMORY_COST: 19456
+      ARGON2_TIME_COST: 2
+      ARGON2_PARALLELISM: 1
+
+      JWT_ACCESS_SECRET: ci-access-secret
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: ci-refresh-secret
+      JWT_REFRESH_EXPIRES_IN: 7d
+      JWT_EMAIL_VERIFICATION_SECRET: ci-email-verification-secret
+      JWT_EMAIL_VERIFICATION_EXPIRES_IN: 24h
+      JWT_PASSWORD_RESET_SECRET: ci-password-reset-secret
+      JWT_PASSWORD_RESET_EXPIRES_IN: 15m
+
+      THROTTLE_DEFAULT_LIMIT: 100
+      THROTTLE_DEFAULT_TTL_MS: 60000
+      UNVERIFIED_USER_TTL_MS: 604800000
+      ENABLE_DEMO_NOTIFICATIONS_OUTBOX: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Backend lint
+        run: pnpm lint:check
+
+      - name: Backend tests
+        run: pnpm test
+
+      - name: Backend build
+        run: pnpm build
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    env:
+      VITE_API_BASE_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Frontend lint
+        run: pnpm --filter demo-frontend lint
+
+      - name: Frontend build
+        run: pnpm --filter demo-frontend build
