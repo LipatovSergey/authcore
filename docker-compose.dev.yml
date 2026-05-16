@@ -1,22 +1,23 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: authcore-db
+    container_name: authcore
     restart: unless-stopped
     ports:
       - '${POSTGRES_PORT:-5432}:5432'
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-authcore}
+      POSTGRES_DB: postgres
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-dev-test-db.sh:/docker-entrypoint-initdb.d/01-create-dev-test-databases.sh:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d postgres']
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
 
 volumes:
-  postgres_data:
+  postgres_dev_data:

@@ -13,6 +13,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "start:demo-frontend": "pnpm --filter demo-frontend dev",
+    "db:setup": "docker compose --env-file .env.development -f docker-compose.dev.yml up -d postgres --wait && pnpm migration:run:dev && pnpm migration:run:test",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "test": "pnpm test:integration && pnpm test:e2e",
