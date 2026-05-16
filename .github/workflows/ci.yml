@@ -25,36 +25,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    env:
-      POSTGRES_HOST: localhost
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: authcore_test
-
-      AUTH_PUBLIC_URL: http://localhost:3000
-      FRONTEND_ORIGIN: http://localhost:5173
-      EMAIL_VERIFICATION_RESULT_URL: http://localhost:5173/email-verification-result
-      PASSWORD_RESET_PAGE_URL: http://localhost:5173/reset-password
-
-      ARGON2_MEMORY_COST: 19456
-      ARGON2_TIME_COST: 2
-      ARGON2_PARALLELISM: 1
-
-      JWT_ACCESS_SECRET: ci-access-secret
-      JWT_ACCESS_EXPIRES_IN: 15m
-      JWT_REFRESH_SECRET: ci-refresh-secret
-      JWT_REFRESH_EXPIRES_IN: 7d
-      JWT_EMAIL_VERIFICATION_SECRET: ci-email-verification-secret
-      JWT_EMAIL_VERIFICATION_EXPIRES_IN: 24h
-      JWT_PASSWORD_RESET_SECRET: ci-password-reset-secret
-      JWT_PASSWORD_RESET_EXPIRES_IN: 15m
-
-      THROTTLE_DEFAULT_LIMIT: 100
-      THROTTLE_DEFAULT_TTL_MS: 60000
-      UNVERIFIED_USER_TTL_MS: 604800000
-      ENABLE_DEMO_NOTIFICATIONS_OUTBOX: true
-
     steps:
       - uses: actions/checkout@v4
 
@@ -71,6 +41,9 @@ jobs:
 
       - name: Backend lint
         run: pnpm lint:check
+
+      - name: Run test migrations
+        run: pnpm migration:run:test
 
       - name: Backend tests
         run: pnpm test
