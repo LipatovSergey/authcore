@@ -56,7 +56,8 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 .pnpm-store/
-.AGENTS.md
 .codex
 commit_rules.md
 plans/
+AGENTS.md
+.agents
