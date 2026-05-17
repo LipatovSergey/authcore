@@ -1,3 +1,4 @@
+Check branch protection test
 # AuthCore
 
 AuthCore is a NestJS authentication service built around JWT access and refresh tokens. Database is PostgreSQL.
