@@ -27,6 +27,8 @@ Current MVP features:
 - Argon2id
 - JWT
 - Jest + Supertest
+- Docker Compose
+- GitHub Actions
 
 ## Architecture
 
@@ -191,10 +193,11 @@ pnpm install
 Create these env files using `.env.example` as a reference:
 
 - `.env.development`
-- `.env.test`
 - `.env.test.throttle`
 
-For local production-like runs you can also create `.env.production`, but it is not required for MVP development and tests.
+The committed `.env.test` file contains non-secret local/CI test values. It is used by automated tests and by the local test database setup.
+
+For local production-like runs and Raspberry Pi deployment, create `.env.production`.
 
 The application validates required environment variables on startup through `@nestjs/config` and Joi.
 
@@ -209,24 +212,35 @@ THROTTLE_DEFAULT_TTL_MS=1000
 
 These values are required because `test/throttling.e2e-spec.ts` currently asserts behavior against them.
 
-### 3. Start PostgreSQL
+### 3. Set up local databases
 
 ```bash
-docker compose up -d
+pnpm db:setup
 ```
 
-The current `docker-compose.yml` starts PostgreSQL 17 on port `5432` by default.
+This starts the local PostgreSQL container from `docker-compose.dev.yml`, creates both local databases on first container initialization, and runs development and test migrations.
 
-### 4. Run migrations
+Local database names:
 
-Before running the app or tests on a clean database, apply migrations:
+- `authcore_development`
+- `authcore_test`
+
+The development compose file uses the container name `authcore` and stores data in the `postgres_dev_data` Docker volume.
+
+Database initialization is handled by:
+
+```text
+docker/postgres/init-dev-test-db.sh
+```
+
+That script is mounted into the Postgres container at `/docker-entrypoint-initdb.d`. It runs only when the Postgres data volume is initialized for the first time. If the local database volume already exists and you need to recreate it from scratch, run:
 
 ```bash
-pnpm migration:run:dev
-pnpm migration:run:test
+docker compose --env-file .env.development -f docker-compose.dev.yml down -v
+pnpm db:setup
 ```
 
-### 5. Start the app
+### 4. Start the app
 
 Development:
 
@@ -239,6 +253,12 @@ Production build:
 ```bash
 pnpm build
 pnpm start:prod
+```
+
+### 5. Start the demo frontend
+
+```bash
+pnpm start:demo-frontend
 ```
 
 ## Testing
@@ -255,17 +275,13 @@ Run the main auth E2E suite:
 pnpm test:e2e
 ```
 
-Run throttling-specific E2E tests:
-
-```bash
-pnpm test:e2e:throttle
-```
-
 General test commands:
 
 - `pnpm test`
 - `pnpm test:watch`
 - `pnpm test:cov`
+
+Throttling-specific E2E coverage is part of the test suite. The project keeps `.env.test.throttle` as a dedicated reference env file for that scenario.
 
 ## Database Migrations
 
@@ -287,6 +303,103 @@ Other available commands:
 - `pnpm migration:revert:dev`
 - `pnpm migration:show:test`
 - `pnpm migration:revert:test`
+
+## Docker
+
+The project has separate Docker Compose files for local development and production deployment.
+
+### Local development
+
+```bash
+docker compose --env-file .env.development -f docker-compose.dev.yml up -d postgres
+```
+
+For normal onboarding, prefer:
+
+```bash
+pnpm db:setup
+```
+
+This command starts local Postgres, waits for the healthcheck, and runs both development and test migrations.
+
+### Production
+
+`docker-compose.prod.yml` is used for Raspberry Pi deployment. It runs:
+
+- PostgreSQL
+- backend API
+- demo frontend served by Nginx
+
+Production values are read from `.env.production`. Docker Compose needs the env file explicitly because compose variable interpolation happens before container environment loading:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+```
+
+Production migrations are run inside the API container:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm api pnpm migration:run:prod
+```
+
+## Deployment
+
+Production deployment is automated by:
+
+```text
+scripts/deploy-prod.sh
+```
+
+The script:
+
+1. fetches and fast-forwards `main`
+2. builds Docker images
+3. starts PostgreSQL
+4. runs production migrations
+5. starts all production services
+6. prints current compose service status
+
+Run it on the deployment host from the repository root:
+
+```bash
+./scripts/deploy-prod.sh
+```
+
+The script assumes that `.env.production` already exists on the host and contains real deployment values.
+
+## CI
+
+GitHub Actions CI runs on pull requests and pushes to `main`.
+
+Backend CI:
+
+- installs dependencies with pnpm
+- runs backend lint
+- starts PostgreSQL 17 for tests
+- runs test migrations
+- runs integration and E2E tests
+- builds the NestJS app
+
+Frontend CI:
+
+- installs dependencies with pnpm
+- runs demo frontend lint
+- builds the Vite frontend
+
+The workflow is defined in:
+
+```text
+.github/workflows/ci.yml
+```
+
+Recommended workflow:
+
+1. create a feature branch
+2. push the branch
+3. open a pull request into `main`
+4. wait for CI to pass
+5. merge into `main`
+6. deploy from the Raspberry Pi with `./scripts/deploy-prod.sh`
 
 ## Swagger
 
