@@ -30,3 +30,7 @@ export function clearTokens() {
   localStorage.removeItem(AUTHCORE_TOKENS.ACCESS);
   localStorage.removeItem(AUTHCORE_TOKENS.REFRESH);
 }
+
+export function hasStoredSession(): boolean {
+  return Boolean(getRefreshToken());
+}

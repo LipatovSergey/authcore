@@ -1,6 +1,7 @@
 import { getMe, logout, refresh } from '../api/authApi';
 import type { RefreshResponse } from '../api/authApi';
 import { ApiError } from '../api/client';
+import { notifyAuthSessionChanged } from './authSessionEvents';
 import {
   clearTokens,
   getAccessToken,
@@ -46,6 +47,7 @@ async function refreshAndLoadCurrentUser(): Promise<GetCurrentUserResult> {
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       clearTokens();
+      notifyAuthSessionChanged();
       return { status: 'unauthenticated' };
     }
     return {
@@ -82,16 +84,19 @@ export async function logoutCurrentUser(): Promise<SignOutResult> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
     clearTokens();
+    notifyAuthSessionChanged();
     return { status: 'success' };
   }
 
   try {
     await logout(refreshToken);
     clearTokens();
+    notifyAuthSessionChanged();
     return { status: 'success' };
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       clearTokens();
+      notifyAuthSessionChanged();
       return { status: 'success' };
     }
     return {

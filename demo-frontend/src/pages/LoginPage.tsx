@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { login, resendEmailVerification } from '../api/authApi';
 import { saveTokens } from '../auth/tokenStorage';
 import { LoadingOverlay } from '../components/LoadingOverlay';
+import { notifyAuthSessionChanged } from '../auth/authSessionEvents';
 
 export function SignInPage() {
   const navigate = useNavigate();
@@ -33,6 +34,7 @@ export function SignInPage() {
       setIsLoading(true);
       const tokens = await login({ email, password });
       saveTokens(tokens);
+      notifyAuthSessionChanged();
       navigate('/me');
     } catch (error) {
       let errorText = 'Something went wrong. Please try again later.';
