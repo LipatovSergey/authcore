@@ -16,6 +16,7 @@ import { UnverifiedUsersCleanupService } from './providers/unverified-users-clea
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { PasswordResetTokensService } from './providers/password-reset-tokens.service';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { EmailVerificationTokensCleanupService } from './providers/email-verification-tokens-cleanup.service';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     JwtTokensService,
     RefreshTokensService,
     EmailVerificationTokensService,
+    EmailVerificationTokensCleanupService,
     PasswordResetTokensService,
     UnverifiedUsersCleanupService,
     { provide: SECURE_HASHER, useClass: Argon2PasswordHasher },

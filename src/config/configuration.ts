@@ -36,5 +36,9 @@ export default () => ({
 
   demoNotificationsOutboxEnabled:
     process.env.ENABLE_DEMO_NOTIFICATIONS_OUTBOX === 'true',
+
   unverifiedUserTtlMs: Number(process.env.UNVERIFIED_USER_TTL_MS),
+  emailVerificationTokenRetentionMs: Number(
+    process.env.EMAIL_VERIFICATION_TOKEN_RETENTION_MS,
+  ),
 });

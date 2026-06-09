@@ -163,6 +163,17 @@ AuthCore is designed as an auth backend that is meant to be used together with a
 - password reset is intended to follow the same client-driven model
 - a small demo frontend is preferred over maintaining built-in backend HTML pages for user-facing auth flows
 
+### Client Token Refresh Responsibility
+
+Clients are responsible for calling `POST /auth/refresh` when an access token can no longer be used.
+
+Expected client flow:
+
+1. Send the access token to protected endpoints using `Authorization: Bearer <token>`.
+2. If a protected request returns `401`, call `POST /auth/refresh` with the current refresh token.
+3. If refresh succeeds, store the returned token pair and retry the original protected request.
+4. If refresh returns `401`, clear stored tokens and require the user to sign in again.
+
 ## Demo Notifications Outbox
 
 AuthCore does not send real emails in local/demo mode. Verification and password reset messages are stored in an in-memory notifications outbox so the full auth flow can be tested without SMTP or an external email provider.

@@ -10,7 +10,7 @@ import {
   SECURE_HASHER,
   type SecureHasher,
 } from '../interfaces/secure-hasher.interface';
-import { EntityManager, IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, LessThan, Repository } from 'typeorm';
 import { CreateEmailVerificationTokenInput } from '../types/email-verification-tokens';
 import { JwtTokensService } from './jwt-tokens.service';
 import { EmailVerificationTokenPayload } from '../types/jwt-tokens';
@@ -104,5 +104,18 @@ export class EmailVerificationTokensService {
     }
 
     return tokenInstance;
+  }
+
+  async cleanupStaleTokens(cutoff: Date): Promise<number> {
+    // TypeORM treats an array of criteria as OR conditions.
+    const { affected } = await this.repo.delete([
+      { usedAt: LessThan(cutoff) },
+      { revokedAt: LessThan(cutoff) },
+      { expiresAt: LessThan(cutoff) },
+    ]);
+    if (affected === undefined || affected === null) {
+      throw new Error('Failed to determine how many stale tokens were deleted');
+    }
+    return affected;
   }
 }
