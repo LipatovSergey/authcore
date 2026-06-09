@@ -48,6 +48,10 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
         PASSWORD_RESET_PAGE_URL: Joi.string().required(),
 
         UNVERIFIED_USER_TTL_MS: Joi.number().integer().positive().required(),
+        EMAIL_VERIFICATION_TOKEN_RETENTION_MS: Joi.number()
+          .integer()
+          .positive()
+          .required(),
 
         ENABLE_DEMO_NOTIFICATIONS_OUTBOX: Joi.boolean().required(),
         PORT: Joi.number().integer().positive().optional(),
