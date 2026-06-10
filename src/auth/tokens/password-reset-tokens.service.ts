@@ -10,7 +10,7 @@ import {
   SECURE_HASHER,
   type SecureHasher,
 } from '../interfaces/secure-hasher.interface';
-import { EntityManager, IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, LessThan, Repository } from 'typeorm';
 import {
   CreatePasswordResetTokenInput,
   MarkTokenAsUsedInput,
@@ -105,5 +105,18 @@ export class PasswordResetTokensService {
     }
 
     return tokenInstance;
+  }
+
+  async cleanupStaleTokens(cutoff: Date): Promise<number> {
+    // TypeORM treats an array of criteria as OR conditions.
+    const { affected } = await this.repo.delete([
+      { expiresAt: LessThan(cutoff) },
+      { revokedAt: LessThan(cutoff) },
+      { usedAt: LessThan(cutoff) },
+    ]);
+    if (affected === undefined || affected === null) {
+      throw new Error('Failed to determine how many stale tokens were deleted');
+    }
+    return affected;
   }
 }
