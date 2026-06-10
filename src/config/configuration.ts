@@ -41,4 +41,7 @@ export default () => ({
   emailVerificationTokenRetentionMs: Number(
     process.env.EMAIL_VERIFICATION_TOKEN_RETENTION_MS,
   ),
+  passwordResetTokenRetentionMs: Number(
+    process.env.PASSWORD_RESET_TOKEN_RETENTION_MS,
+  ),
 });
