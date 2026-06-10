@@ -10,22 +10,22 @@ import {
   SECURE_HASHER,
   type SecureHasher,
 } from './interfaces/secure-hasher.interface';
-import { JwtTokensService } from './providers/jwt-tokens.service';
-import { RefreshTokensService } from './providers/refresh-tokens.service';
+import { JwtTokensService } from './tokens/jwt-tokens.service';
+import { RefreshTokensService } from './tokens/refresh-tokens.service';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
 import { LoginRequestDto, LoginResponseDto } from './dto/login.dto';
 import { RefreshRequestDto, RefreshResponseDto } from './dto/refresh.dto';
 import { LogoutRequestDto, LogoutResponseDto } from './dto/logout.dto';
 import { LogoutAllRequestDto, LogoutAllResponseDto } from './dto/logoutAll.dto';
 import { GetProfileResponseDto } from './dto/get-profile.dto';
-import { EmailVerificationTokensService } from './providers/email-verification-tokens.service';
+import { EmailVerificationTokensService } from './tokens/email-verification-tokens.service';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import {
   EmailVerificationResendRequestDto,
   EmailVerificationResendResponseDto,
 } from './dto/email-verification-resend.dto';
-import { PasswordResetTokensService } from './providers/password-reset-tokens.service';
+import { PasswordResetTokensService } from './tokens/password-reset-tokens.service';
 import { ForgotPasswordRequestDto } from './dto/forgot-password.dto';
 import {
   ResetPasswordRequestDto,

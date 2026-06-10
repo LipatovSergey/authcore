@@ -5,7 +5,7 @@ import { EmailVerificationToken } from '../../src/auth/entities/email-verificati
 import { User } from '../../src/users/entities/user.entity';
 import { createTestApp } from '../helpers/test-app.helper';
 import { randomUUID } from 'crypto';
-import { EmailVerificationTokensService } from '../../src/auth/providers/email-verification-tokens.service';
+import { EmailVerificationTokensService } from '../../src/auth/tokens/email-verification-tokens.service';
 
 describe('EmailVerificationTokensService.cleanupStaleTokens', () => {
   let app: INestApplication<App>;

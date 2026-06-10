@@ -2,21 +2,21 @@ import { Module } from '@nestjs/common';
 import { UsersModule } from '../users/users.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { Argon2PasswordHasher } from './providers/argon2-secure-hasher.service';
+import { Argon2PasswordHasher } from './hashing/argon2-secure-hasher.service';
 import { SECURE_HASHER } from './interfaces/secure-hasher.interface';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { JwtTokensService } from './providers/jwt-tokens.service';
+import { JwtTokensService } from './tokens/jwt-tokens.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RefreshToken } from './entities/refresh-token.entity';
-import { RefreshTokensService } from './providers/refresh-tokens.service';
-import { EmailVerificationTokensService } from './providers/email-verification-tokens.service';
+import { RefreshTokensService } from './tokens/refresh-tokens.service';
+import { EmailVerificationTokensService } from './tokens/email-verification-tokens.service';
 import { EmailVerificationToken } from './entities/email-verification-token.entity';
-import { UnverifiedUsersCleanupService } from './providers/unverified-users-cleanup.service';
+import { UnverifiedUsersCleanupService } from './cleanup/unverified-users-cleanup.service';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
-import { PasswordResetTokensService } from './providers/password-reset-tokens.service';
+import { PasswordResetTokensService } from './tokens/password-reset-tokens.service';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { EmailVerificationTokensCleanupService } from './providers/email-verification-tokens-cleanup.service';
+import { EmailVerificationTokensCleanupService } from './cleanup/email-verification-tokens-cleanup.service';
 
 @Module({
   imports: [

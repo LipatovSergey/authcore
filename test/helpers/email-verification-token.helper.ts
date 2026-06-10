@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import { EmailVerificationToken } from '../../src/auth/entities/email-verification-token.entity';
-import { EmailVerificationTokensService } from '../../src/auth/providers/email-verification-tokens.service';
-import { JwtTokensService } from '../../src/auth/providers/jwt-tokens.service';
+import { EmailVerificationTokensService } from '../../src/auth/tokens/email-verification-tokens.service';
+import { JwtTokensService } from '../../src/auth/tokens/jwt-tokens.service';
 
 type TokenStateOverrides = {
   usedAt?: Date | null;
