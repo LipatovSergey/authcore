@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { EmailVerificationTokensService } from './email-verification-tokens.service';
+import { EmailVerificationTokensService } from '../tokens/email-verification-tokens.service';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()

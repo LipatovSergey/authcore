@@ -5,8 +5,8 @@ import { User } from 'src/users/entities/user.entity';
 import { createTestApp } from '../helpers/test-app.helper';
 import { AuthService, VERIFY_EMAIL_OUTCOME } from '../../src/auth/auth.service';
 import { EmailVerificationToken } from '../../src/auth/entities/email-verification-token.entity';
-import { EmailVerificationTokensService } from '../../src/auth/providers/email-verification-tokens.service';
-import { JwtTokensService } from '../../src/auth/providers/jwt-tokens.service';
+import { EmailVerificationTokensService } from '../../src/auth/tokens/email-verification-tokens.service';
+import { JwtTokensService } from '../../src/auth/tokens/jwt-tokens.service';
 import { createEmailVerificationTokenFixture } from '../helpers/email-verification-token.helper';
 import {
   SECURE_HASHER,
