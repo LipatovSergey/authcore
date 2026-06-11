@@ -15,7 +15,7 @@ export class EmailVerificationTokensCleanupService {
 
   @Cron('0 10 3 * * *', {
     name: 'email-verification-tokens-cleanup',
-    timeZone: 'Asia/Jerusalem',
+    timeZone: 'UTC',
     waitForCompletion: true,
   })
   async cleanup(): Promise<number> {
