@@ -8,6 +8,7 @@ import { EmailVerificationToken } from '../../src/auth/entities/email-verificati
 import { EmailVerificationTokensService } from '../../src/auth/tokens/email-verification-tokens.service';
 import { JwtTokensService } from '../../src/auth/tokens/jwt-tokens.service';
 import { createEmailVerificationTokenFixture } from '../helpers/email-verification-token.helper';
+import { createUserFixture } from '../helpers/user-fixture.helper';
 import {
   SECURE_HASHER,
   type SecureHasher,
@@ -44,12 +45,7 @@ describe('AuthService.verifyEmail', () => {
   });
 
   it('verifies unverified user and marks token as used', async () => {
-    const userBefore = await usersRepository.save({
-      email: 'test@gmail.com',
-      passwordHash: 'somePasswordHash',
-      isEmailVerified: false,
-      unverifiedExpiresAt: new Date('2026-04-01T00:00:00.000Z'),
-    });
+    const userBefore = await createUserFixture(dataSource);
 
     const { rawToken, token } = await createEmailVerificationTokenFixture({
       dataSource,
@@ -78,9 +74,7 @@ describe('AuthService.verifyEmail', () => {
 
   it('returns ALREADY_VERIFIED if user is already verified', async () => {
     const emailVerifiedAt = new Date('2026-04-01T00:00:00.000Z');
-    const userBefore = await usersRepository.save({
-      email: 'test@gmail.com',
-      passwordHash: 'somePasswordHash',
+    const userBefore = await createUserFixture(dataSource, {
       isEmailVerified: true,
       emailVerifiedAt,
       unverifiedExpiresAt: null,
@@ -114,10 +108,7 @@ describe('AuthService.verifyEmail', () => {
   it('rejects revoked token without changing user state', async () => {
     const unverifiedExpiresAt = new Date('2026-04-01T00:00:00.000Z');
     const revokedAt = new Date('2026-04-02T00:00:00.000Z');
-    const userBefore = await usersRepository.save({
-      email: 'test@gmail.com',
-      passwordHash: 'somePasswordHash',
-      isEmailVerified: false,
+    const userBefore = await createUserFixture(dataSource, {
       unverifiedExpiresAt,
     });
 
@@ -151,10 +142,7 @@ describe('AuthService.verifyEmail', () => {
   it('rejects used token without changing user state', async () => {
     const unverifiedExpiresAt = new Date('2026-04-01T00:00:00.000Z');
     const usedAt = new Date('2026-04-02T00:00:00.000Z');
-    const userBefore = await usersRepository.save({
-      email: 'test@gmail.com',
-      passwordHash: 'somePasswordHash',
-      isEmailVerified: false,
+    const userBefore = await createUserFixture(dataSource, {
       unverifiedExpiresAt,
     });
 
@@ -187,10 +175,7 @@ describe('AuthService.verifyEmail', () => {
 
   it('rejects expired token without changing user state', async () => {
     const unverifiedExpiresAt = new Date('2026-04-01T00:00:00.000Z');
-    const userBefore = await usersRepository.save({
-      email: 'test@gmail.com',
-      passwordHash: 'somePasswordHash',
-      isEmailVerified: false,
+    const userBefore = await createUserFixture(dataSource, {
       unverifiedExpiresAt,
     });
 
@@ -225,10 +210,7 @@ describe('AuthService.verifyEmail', () => {
 
   it('rejects token with mismatched hash without changing user state', async () => {
     const unverifiedExpiresAt = new Date('2026-04-01T00:00:00.000Z');
-    const userBefore = await usersRepository.save({
-      email: 'test@gmail.com',
-      passwordHash: 'somePasswordHash',
-      isEmailVerified: false,
+    const userBefore = await createUserFixture(dataSource, {
       unverifiedExpiresAt,
     });
 

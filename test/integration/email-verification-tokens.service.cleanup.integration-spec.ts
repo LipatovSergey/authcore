@@ -2,15 +2,14 @@ import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 import { DataSource, Repository, In } from 'typeorm';
 import { EmailVerificationToken } from '../../src/auth/entities/email-verification-token.entity';
-import { User } from '../../src/users/entities/user.entity';
 import { createTestApp } from '../helpers/test-app.helper';
 import { randomUUID } from 'crypto';
 import { EmailVerificationTokensService } from '../../src/auth/tokens/email-verification-tokens.service';
+import { createUserFixture } from '../helpers/user-fixture.helper';
 
 describe('EmailVerificationTokensService.cleanupStaleTokens', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
-  let userRepository: Repository<User>;
   let emailVerificationTokensRepository: Repository<EmailVerificationToken>;
   let emailVerificationTokensService: EmailVerificationTokensService;
 
@@ -18,7 +17,6 @@ describe('EmailVerificationTokensService.cleanupStaleTokens', () => {
 
   beforeAll(async () => {
     ({ app, dataSource } = await createTestApp());
-    userRepository = dataSource.getRepository(User);
     emailVerificationTokensRepository = dataSource.getRepository(
       EmailVerificationToken,
     );
@@ -49,15 +47,8 @@ describe('EmailVerificationTokensService.cleanupStaleTokens', () => {
     });
   }
 
-  const user = {
-    email: 'test@gmail.com',
-    passwordHash: 'somePasswordHash',
-    isEmailVerified: false,
-    unverifiedExpiresAt: new Date('2026-04-01T00:00:00.000Z'),
-  };
-
   it('deletes email verification tokens with usedAt before cutoff', async () => {
-    const { id: userId } = await userRepository.save(user);
+    const { id: userId } = await createUserFixture(dataSource);
     const cutoffMs = Date.parse('2026-06-01T00:00:00.000Z');
     const token = await createEmailVerificationToken({
       userId,
@@ -77,7 +68,7 @@ describe('EmailVerificationTokensService.cleanupStaleTokens', () => {
   });
 
   it('deletes email verification tokens with revokedAt before cutoff', async () => {
-    const { id: userId } = await userRepository.save(user);
+    const { id: userId } = await createUserFixture(dataSource);
     const cutoffMs = Date.parse('2026-06-01T00:00:00.000Z');
     const token = await createEmailVerificationToken({
       userId,
@@ -97,7 +88,7 @@ describe('EmailVerificationTokensService.cleanupStaleTokens', () => {
   });
 
   it('deletes email verification tokens with expiresAt before cutoff', async () => {
-    const { id: userId } = await userRepository.save(user);
+    const { id: userId } = await createUserFixture(dataSource);
     const cutoffMs = Date.parse('2026-06-01T00:00:00.000Z');
     const token = await createEmailVerificationToken({
       userId,
@@ -117,7 +108,7 @@ describe('EmailVerificationTokensService.cleanupStaleTokens', () => {
   });
 
   it('keeps active non-expired tokens', async () => {
-    const { id: userId } = await userRepository.save(user);
+    const { id: userId } = await createUserFixture(dataSource);
     const cutoffMs = Date.parse('2026-06-01T00:00:00.000Z');
     const token = await createEmailVerificationToken({
       userId,
@@ -137,7 +128,7 @@ describe('EmailVerificationTokensService.cleanupStaleTokens', () => {
   });
 
   it('keeps inactive tokens when cleanup timestamps are after cutoff', async () => {
-    const { id: userId } = await userRepository.save(user);
+    const { id: userId } = await createUserFixture(dataSource);
     const cutoffMs = Date.parse('2026-06-01T00:00:00.000Z');
     const usedAtAfterCutoffToken = await createEmailVerificationToken({
       userId,

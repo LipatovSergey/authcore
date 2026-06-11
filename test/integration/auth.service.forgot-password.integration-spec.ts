@@ -1,25 +1,22 @@
 import { INestApplication } from '@nestjs/common';
 import type { App } from 'supertest/types';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { UsersService } from 'src/users/users.service';
-import { User } from 'src/users/entities/user.entity';
-import { Repository } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
 import { PasswordResetToken } from '../../src/auth/entities/password-reset-token.entity';
 import { AuthService } from '../../src/auth/auth.service';
+import { createUserFixture } from '../helpers/user-fixture.helper';
 
 describe('AuthService.forgotPassword', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let usersService: UsersService;
-  let userRepository: Repository<User>;
   let passwordResetTokensRepository: Repository<PasswordResetToken>;
   let authService: AuthService;
 
   beforeAll(async () => {
     ({ app, dataSource } = await createTestApp());
     usersService = app.get(UsersService);
-    userRepository = dataSource.getRepository(User);
     passwordResetTokensRepository =
       dataSource.getRepository(PasswordResetToken);
     authService = app.get(AuthService);
@@ -34,15 +31,12 @@ describe('AuthService.forgotPassword', () => {
   });
 
   it('creates password reset token for verified user', async () => {
-    const user = {
-      email: 'test@gmail.com',
-      passwordHash: 'somePasswordHash',
+    const userRecord = await createUserFixture(dataSource, {
       isEmailVerified: true,
       emailVerifiedAt: new Date('2026-04-01T00:00:00.000Z'),
       unverifiedExpiresAt: null,
-    };
-    const userRecord = await userRepository.save(user);
-    await authService.forgotPassword({ email: user.email });
+    });
+    await authService.forgotPassword({ email: userRecord.email });
     const token = await passwordResetTokensRepository.findOneBy({
       userId: userRecord.id,
     });
@@ -63,28 +57,21 @@ describe('AuthService.forgotPassword', () => {
   });
 
   it('does not set unverifiedExpiresAt for verified user', async () => {
-    const user = {
-      email: 'test@gmail.com',
-      passwordHash: 'somePasswordHash',
+    const user = await createUserFixture(dataSource, {
       isEmailVerified: true,
       emailVerifiedAt: new Date('2026-04-01T00:00:00.000Z'),
       unverifiedExpiresAt: null,
-    };
-    await userRepository.save(user);
+    });
     await authService.forgotPassword({ email: user.email });
     const userAfter = await usersService.findByEmail(user.email);
     expect(userAfter?.unverifiedExpiresAt).toBeNull();
   });
 
   it('creates token and extends unverifiedExpiresAt for unverified user', async () => {
-    const user = {
-      email: 'test@gmail.com',
-      passwordHash: 'somePasswordHash',
-      isEmailVerified: false,
+    const userBefore = await createUserFixture(dataSource, {
       unverifiedExpiresAt: new Date('2026-04-01T00:00:00.000Z'),
-    };
-    const userBefore = await userRepository.save(user);
-    await authService.forgotPassword({ email: user.email });
+    });
+    await authService.forgotPassword({ email: userBefore.email });
     const token = await passwordResetTokensRepository.findOneBy({
       userId: userBefore.id,
     });
@@ -103,7 +90,7 @@ describe('AuthService.forgotPassword', () => {
     expect(token.usedAt).toBeNull();
     expect(token.revokedAt).toBeNull();
 
-    const userAfter = await usersService.findByEmail(user.email);
+    const userAfter = await usersService.findByEmail(userBefore.email);
     if (!userBefore?.unverifiedExpiresAt || !userAfter?.unverifiedExpiresAt) {
       throw new Error('Expected unverifiedExpiresAt to exist before and after');
     }
@@ -113,15 +100,11 @@ describe('AuthService.forgotPassword', () => {
   });
 
   it('repeated forgot-password revokes previous active token', async () => {
-    const user = {
-      email: 'test@gmail.com',
-      passwordHash: 'somePasswordHash',
-      isEmailVerified: false,
+    const userRecord = await createUserFixture(dataSource, {
       unverifiedExpiresAt: new Date('2026-04-01T00:00:00.000Z'),
-    };
-    const userRecord = await userRepository.save(user);
-    await authService.forgotPassword({ email: user.email });
-    await authService.forgotPassword({ email: user.email });
+    });
+    await authService.forgotPassword({ email: userRecord.email });
+    await authService.forgotPassword({ email: userRecord.email });
     const tokens = await passwordResetTokensRepository.find({
       where: { userId: userRecord.id },
       order: { createdAt: 'ASC' },

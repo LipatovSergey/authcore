@@ -1,15 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { DataSource, Repository, In } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
-import { User } from '../../src/users/entities/user.entity';
 import { PasswordResetToken } from '../../src/auth/entities/password-reset-token.entity';
 import { PasswordResetTokensService } from '../../src/auth/tokens/password-reset-tokens.service';
 import { randomUUID } from 'crypto';
+import { createUserFixture } from '../helpers/user-fixture.helper';
 
 describe('PasswordResetTokensService.cleanupStaleTokens', () => {
   let app: INestApplication;
   let dataSource: DataSource;
-  let userRepository: Repository<User>;
   let passwordResetTokensRepository: Repository<PasswordResetToken>;
   let passwordResetTokensService: PasswordResetTokensService;
 
@@ -17,7 +16,6 @@ describe('PasswordResetTokensService.cleanupStaleTokens', () => {
 
   beforeAll(async () => {
     ({ app, dataSource } = await createTestApp());
-    userRepository = dataSource.getRepository(User);
     passwordResetTokensRepository =
       dataSource.getRepository(PasswordResetToken);
     passwordResetTokensService = app.get(PasswordResetTokensService);
@@ -47,15 +45,8 @@ describe('PasswordResetTokensService.cleanupStaleTokens', () => {
     });
   }
 
-  const user = {
-    email: 'test@gmail.com',
-    passwordHash: 'somePasswordHash',
-    isEmailVerified: false,
-    unverifiedExpiresAt: new Date('2026-04-01T00:00:00.000Z'),
-  };
-
   it('deletes password reset tokens with usedAt before cutoff', async () => {
-    const { id: userId } = await userRepository.save(user);
+    const { id: userId } = await createUserFixture(dataSource);
     const cutoffMs = Date.parse('2026-06-01T00:00:00.000Z');
     const token = await createPasswordResetToken({
       userId,
@@ -74,7 +65,7 @@ describe('PasswordResetTokensService.cleanupStaleTokens', () => {
   });
 
   it('deletes password reset tokens with revokedAt before cutoff', async () => {
-    const { id: userId } = await userRepository.save(user);
+    const { id: userId } = await createUserFixture(dataSource);
     const cutoffMs = Date.parse('2026-06-01T00:00:00.000Z');
     const token = await createPasswordResetToken({
       userId,
@@ -93,7 +84,7 @@ describe('PasswordResetTokensService.cleanupStaleTokens', () => {
   });
 
   it('deletes password reset tokens with expiresAt before cutoff', async () => {
-    const { id: userId } = await userRepository.save(user);
+    const { id: userId } = await createUserFixture(dataSource);
     const cutoffMs = Date.parse('2026-06-01T00:00:00.000Z');
     const token = await createPasswordResetToken({
       userId,
@@ -112,7 +103,7 @@ describe('PasswordResetTokensService.cleanupStaleTokens', () => {
   });
 
   it('keeps active non-expired tokens', async () => {
-    const { id: userId } = await userRepository.save(user);
+    const { id: userId } = await createUserFixture(dataSource);
     const cutoffMs = Date.parse('2026-06-01T00:00:00.000Z');
     const token = await createPasswordResetToken({
       userId,
@@ -131,7 +122,7 @@ describe('PasswordResetTokensService.cleanupStaleTokens', () => {
   });
 
   it('keeps inactive tokens when cleanup timestamps are after cutoff', async () => {
-    const { id: userId } = await userRepository.save(user);
+    const { id: userId } = await createUserFixture(dataSource);
     const cutoffMs = Date.parse('2026-06-01T00:00:00.000Z');
     const usedAtAfterCutoffToken = await createPasswordResetToken({
       userId,
