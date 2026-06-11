@@ -1,43 +1,68 @@
 # AuthCore Project Plan
 
-## General Info
+## Overview
 
 **Project:** AuthCore authentication service  
-**Developer:** Solo developer learning project  
-**Goal:** Build a portfolio-ready auth service for reuse in other JavaScript projects  
+**Developer:** Solo learning / portfolio project  
+**Goal:** Build a reusable, portfolio-ready authentication service for JavaScript applications  
 **License:** MIT
 
-## Current Stack
+AuthCore is a backend-first authentication service. It is designed to provide core auth flows through an API and to be used by separate client applications. A small demo frontend is included for manual testing and portfolio presentation.
+
+The project also serves as practice for production-like development habits: issues, feature branches, pull requests, CI, Docker, deployment, and release discipline.
+
+## Product Goals
+
+- Provide a reusable authentication backend for JavaScript projects.
+- Keep auth flows explicit, testable, and easy to reason about.
+- Use PostgreSQL-backed state for security-sensitive token lifecycle decisions.
+- Keep the backend independent from user-facing HTML pages.
+- Include a demo frontend only as a client example, not as the core product.
+- Maintain a project structure that can grow without becoming hard to navigate.
+
+## Stack
 
 - Node.js 20+
 - NestJS
-- TypeScript with strict mode
+- TypeScript
 - PostgreSQL 17
 - TypeORM migrations
 - Argon2id password hashing
-- JWT access, refresh, verification, and reset tokens
+- JWT access, refresh, email verification, and password reset tokens
 - Jest + Supertest
+- React + Vite demo frontend
 - Docker Compose
+- GitHub Actions CI
 - Swagger / OpenAPI
 
-## Current Architecture
+## Architecture
 
-AuthCore uses a modular backend structure:
+Main backend modules:
 
-- `auth` handles auth HTTP endpoints, DTOs, guards, and auth orchestration
-- `users` handles user persistence and lifecycle data
-- `notifications` handles demo notification delivery and in-memory outbox access
-- `database/migrations` stores schema changes
-- `config` centralizes environment-based configuration
+- `auth` handles auth endpoints, DTOs, guards, token flows, and cleanup jobs.
+- `users` handles user persistence and lifecycle data.
+- `notifications` handles demo notification delivery and in-memory outbox access.
+- `database/migrations` stores schema changes.
+- `config` centralizes environment-based configuration.
+
+Auth module organization:
+
+- `auth/tokens` contains token-related services.
+- `auth/cleanup` contains scheduled cleanup jobs.
+- `auth/hashing` contains hashing implementation.
+- `auth/entities` contains auth token entities.
+- `auth/dto`, `auth/types`, and `auth/interfaces` contain API and internal contracts.
 
 Conventions:
 
 - Service and internal code: `camelCase`
 - API JSON: `snake_case`
 - Database columns: `snake_case`
-- Schema changes are made through migrations, not synchronization
+- Schema changes are made through migrations, not synchronization.
 
-## Implemented Auth API
+## API Scope
+
+Auth endpoints:
 
 ```text
 POST   /auth/register
@@ -50,87 +75,70 @@ GET    /auth/email-verification
 POST   /auth/email-verification/resend
 POST   /auth/forgot-password
 POST   /auth/reset-password
+```
+
+Demo endpoints:
+
+```text
 GET    /demo/notifications-outbox
 DELETE /demo/notifications-outbox
 ```
 
-## Core Data Models
+Swagger UI:
 
-**Users**
-
-```typescript
-{
-  id: UUID
-  email: string
-  password_hash: string
-  is_email_verified: boolean
-  email_verified_at: timestamp | null
-  unverified_expires_at: timestamp | null
-  created_at: timestamp
-  updated_at: timestamp
-}
+```text
+GET /api
 ```
 
-**Refresh Tokens**
+## Core Auth Model
 
-```typescript
-{
-  id: UUID
-  user_id: UUID
-  jti: string
-  token_hash: string
-  expires_at: timestamp
-  created_at: timestamp
-  revoked_at: timestamp | null
-}
-```
+Users:
 
-**Email Verification Tokens / Password Reset Tokens**
+- registration creates an unverified user immediately;
+- login is blocked until email verification is completed;
+- `unverified_expires_at` is the source of truth for abandoned unverified account cleanup;
+- email verification clears `unverified_expires_at`;
+- resend verification and forgot-password can extend the unverified user lifetime.
 
-```typescript
-{
-  id: UUID
-  user_id: UUID
-  jti: string
-  token_hash: string
-  expires_at: timestamp
-  used_at: timestamp | null
-  revoked_at: timestamp | null
-  created_at: timestamp
-}
-```
+Tokens:
 
-## Key Auth Decisions
+- access tokens are short-lived JWTs sent as `Authorization: Bearer <token>`;
+- refresh tokens are persisted in PostgreSQL and use rotation;
+- email verification and password reset use JWT as transport plus stateful database records;
+- raw verification/reset/refresh tokens are never stored;
+- token hashes are stored in PostgreSQL;
+- email verification and password reset tokens support expiration, one-time use, and revocation.
 
-- Registration creates an unverified user immediately.
-- Login is blocked until email verification is completed.
-- Email verification and password reset use JWT as transport plus stateful database storage.
-- Raw verification/reset tokens are never stored; only hashes are persisted.
-- Verification/reset token state supports expiration, one-time use, and revocation.
-- Resend verification and forgot-password return generic `{ message: 'ok' }` responses to reduce account enumeration risk.
-- Password reset is allowed for unverified users.
-- Password reset does not verify email automatically.
-- `unverified_expires_at` is the user lifecycle source of truth for cleanup.
-- Resend verification and forgot-password extend `unverified_expires_at` for unverified users.
-- Email verification clears `unverified_expires_at`.
-- Abandoned unverified users are cleaned up by scheduled policy based on user fields.
+Security behavior:
 
-## Client And Demo Strategy
+- resend verification and forgot-password return generic `{ message: 'ok' }` responses to reduce account enumeration risk;
+- password reset is allowed for unverified users;
+- password reset does not verify email automatically;
+- cleanup jobs remove stale lifecycle data after configurable retention windows.
 
-AuthCore is backend-first and expects a separate client application for user-facing screens.
+## Demo Frontend Strategy
 
-- Email verification is resolved by the backend and redirected to a configured client result URL.
-- Password reset links point to a configured client reset page.
-- The backend does not serve built-in HTML auth pages.
-- Local/demo mode uses an in-memory notifications outbox instead of real email delivery.
-- Demo notification outbox is enabled by `ENABLE_DEMO_NOTIFICATIONS_OUTBOX=true`.
+The demo frontend should demonstrate the auth service from a client perspective:
+
+- registration;
+- login;
+- profile access;
+- logout;
+- email verification result handling;
+- resend verification;
+- forgot password;
+- reset password;
+- demo notification outbox.
+
+The frontend should remain small and focused. It should not become a full product UI or duplicate backend responsibilities.
 
 ## Testing Strategy
 
 - E2E tests cover main HTTP auth flows.
 - Integration tests cover service-level behavior for non-trivial flows.
-- Test suites run sequentially against a real PostgreSQL test database.
-- Throttling tests use a dedicated environment file.
+- Tests run against a real PostgreSQL test database.
+- Test helpers are used for reusable fixtures.
+- Cleanup behavior should be tested at the service level before testing scheduler orchestration.
 
 Main commands:
 
@@ -138,65 +146,124 @@ Main commands:
 pnpm test
 pnpm test:e2e
 pnpm test:integration
-pnpm test:e2e:throttle
 ```
 
-## v1.1.0 Status
+Full project verification:
 
-Goal: complete email verification, password reset, unverified user cleanup, and demo-friendly notification handling.
+```bash
+pnpm lint:check
+pnpm test
+pnpm build
+pnpm --filter demo-frontend lint
+pnpm --filter demo-frontend build
+```
 
-Implemented:
+## Development Workflow
 
-- Email verification flow
-- Email verification resend flow
-- Password reset flow
-- User-based cleanup policy for abandoned unverified accounts
-- Demo notifications outbox
-- E2E and integration tests for key auth flows
-- Swagger documentation for auth and demo outbox endpoints
+Target workflow:
 
-Remaining before tagging `v1.1.0`:
+- create an issue for meaningful features, fixes, and refactors;
+- create a feature/fix/refactor branch from `main`;
+- open a pull request into `main`;
+- require CI to pass before merge;
+- keep `main` stable and deployable;
+- delete feature branches after merge.
 
-- Add a small demo frontend
-- Final README and `.env.example` review
-- Final build, lint, and test pass
-- Optional package metadata polish
+CI should cover:
+
+- backend lint;
+- backend migrations/tests/build;
+- frontend lint/build.
+
+## Deployment Direction
+
+Local development:
+
+- use Docker Compose for local PostgreSQL;
+- keep development and test databases easy to bootstrap;
+- keep env examples current.
+
+Production-style deployment:
+
+- build backend and frontend through Docker;
+- run migrations before starting production services;
+- keep deployment script simple and repeatable;
+- keep secrets outside the repository.
 
 ## Roadmap
 
-### v2.0.0 - Production Security
+### Phase 1 - Core Auth MVP
 
-- Multiple sessions
-- Session listing and session revocation endpoints
+- User registration
+- Login
+- Access token protection
+- Refresh token rotation
+- Logout current session
+- Logout all sessions
+- Protected profile endpoint
+- Swagger documentation
+- Integration and E2E tests
+
+### Phase 2 - Email And Password Flows
+
+- Email verification
+- Email verification resend
+- Password reset request
+- Password reset confirmation
+- Demo notification outbox
+- Client redirect flow for verification/reset results
+
+### Phase 3 - Lifecycle Cleanup
+
+- Cleanup abandoned unverified users
+- Cleanup stale email verification tokens
+- Cleanup stale password reset tokens
+- Cleanup stale refresh tokens
+- Configurable retention policies
+- UTC-based cleanup schedules
+
+### Phase 4 - Demo And Developer Experience
+
+- Demo React frontend
+- Local Docker development setup
+- CI through GitHub Actions
+- Protected pull request workflow
+- README and env example polish
+- Production-like Docker deployment
+
+### Phase 5 - Production Security Hardening
+
+- Refresh token reuse detection
 - HTTP-only cookie refresh flow
 - CSRF protection
 - Distributed rate limiting with Redis
 - Helmet and CORS hardening
 - Structured logging and request IDs
+- Session listing and session revocation endpoints
 
-### v2.1.0 - Advanced Features
+### Phase 6 - Advanced Features
 
 - Roles and permissions
 - RS256 JWT signing
 - Public key endpoint
-- Deployment setup
-- CI/CD
+- Production email provider integration
+- More complete client integration examples
 
-## Non-Goals For Current Version
+## Non-Goals
 
 - OAuth and social login
-- Full user-facing HTML pages served directly by the auth backend
-- API Gateway inside this project
+- Full user-facing HTML pages served directly by the backend
+- API gateway inside this project
 - Horizontal scaling
-- Distributed caching
-- Production email provider integration
+- Distributed caching, except future Redis-backed rate limiting
+- Turning the demo frontend into a full product application
 
 ## Related Work
 
 - Demo frontend client for manual testing and portfolio presentation
-- `notes-service` as a separate service that can integrate with AuthCore
+- Future services can integrate with AuthCore as an external auth provider
 
 ---
 
-**Last updated:** 2026-04-28  
-**Plan version:** 1.1
+**Last updated:** 2026-06-12  
+**Plan version:** 1.2
