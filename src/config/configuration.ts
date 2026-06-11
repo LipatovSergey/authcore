@@ -44,4 +44,5 @@ export default () => ({
   passwordResetTokenRetentionMs: Number(
     process.env.PASSWORD_RESET_TOKEN_RETENTION_MS,
   ),
+  refreshTokenRetentionMs: Number(process.env.REFRESH_TOKEN_RETENTION_MS),
 });
