@@ -18,6 +18,7 @@ import { PasswordResetTokensService } from './tokens/password-reset-tokens.servi
 import { NotificationsModule } from '../notifications/notifications.module';
 import { EmailVerificationTokensCleanupService } from './cleanup/email-verification-tokens-cleanup.service';
 import { PasswordResetTokensCleanupService } from './cleanup/password-reset-tokens-cleanup.service';
+import { RefreshTokensCleanupService } from './cleanup/refresh-tokens-cleanup.service';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { PasswordResetTokensCleanupService } from './cleanup/password-reset-toke
     AuthService,
     JwtTokensService,
     RefreshTokensService,
+    RefreshTokensCleanupService,
     EmailVerificationTokensService,
     EmailVerificationTokensCleanupService,
     PasswordResetTokensCleanupService,

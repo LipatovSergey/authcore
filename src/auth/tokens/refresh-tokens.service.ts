@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RefreshToken } from '../entities/refresh-token.entity';
-import { IsNull, MoreThan, Repository } from 'typeorm';
+import { IsNull, LessThan, MoreThan, Repository } from 'typeorm';
 import {
   CreateRefreshTokenInput,
   RotateRefreshTokenInput,
@@ -130,5 +130,17 @@ export class RefreshTokensService {
 
   async revokeAllByUserId(userId: string): Promise<void> {
     await this.repo.update({ userId }, { revokedAt: new Date() });
+  }
+
+  async cleanupStaleTokens(cutoff: Date): Promise<number> {
+    // TypeORM treats an array of criteria as OR conditions.
+    const { affected } = await this.repo.delete([
+      { expiresAt: LessThan(cutoff) },
+      { revokedAt: LessThan(cutoff) },
+    ]);
+    if (affected === undefined || affected === null) {
+      throw new Error('Failed to determine how many stale tokens were deleted');
+    }
+    return affected;
   }
 }

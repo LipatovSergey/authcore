@@ -56,6 +56,10 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
           .integer()
           .positive()
           .required(),
+        REFRESH_TOKEN_RETENTION_MS: Joi.number()
+          .integer()
+          .positive()
+          .required(),
 
         ENABLE_DEMO_NOTIFICATIONS_OUTBOX: Joi.boolean().required(),
         PORT: Joi.number().integer().positive().optional(),
