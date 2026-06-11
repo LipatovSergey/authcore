@@ -9,7 +9,7 @@ export class UnverifiedUsersCleanupService {
 
   @Cron('0 0 3 * * *', {
     name: 'unverified-users-cleanup',
-    timeZone: 'Asia/Jerusalem',
+    timeZone: 'UTC',
     waitForCompletion: true,
   })
   async cleanup(): Promise<number> {

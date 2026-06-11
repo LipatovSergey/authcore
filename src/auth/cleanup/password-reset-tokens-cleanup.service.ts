@@ -13,7 +13,7 @@ export class PasswordResetTokensCleanupService {
 
   @Cron('0 20 3 * * *', {
     name: 'password-reset-tokens-cleanup',
-    timeZone: 'Asia/Jerusalem',
+    timeZone: 'UTC',
     waitForCompletion: true,
   })
   async cleanup(): Promise<number> {
