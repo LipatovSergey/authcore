@@ -46,11 +46,7 @@ export class RefreshTokensService {
     token: string,
   ): Promise<RefreshToken> {
     const tokenInstance = await this.findByJti(jti);
-    if (
-      !tokenInstance ||
-      Date.now() >= tokenInstance.expiresAt.getTime() ||
-      tokenInstance.revokedAt !== null
-    ) {
+    if (!tokenInstance || Date.now() >= tokenInstance.expiresAt.getTime()) {
       this.logger.warn('Invalid refresh token');
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -61,6 +57,15 @@ export class RefreshTokensService {
     );
     if (!isValid) {
       this.logger.warn('Invalid refresh token');
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // Known revoked token with a matching hash means possible refresh token reuse
+    if (tokenInstance.revokedAt !== null) {
+      this.logger.warn(
+        `Refresh token reuse detected: userId=${tokenInstance.userId}`,
+      );
+      await this.revokeAllByUserId(tokenInstance.userId);
       throw new UnauthorizedException('Invalid refresh token');
     }
 
