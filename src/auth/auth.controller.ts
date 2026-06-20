@@ -18,7 +18,7 @@ import { LogoutRequestDto } from './dto/logout.dto';
 import { LogoutAllRequestDto } from './dto/logoutAll.dto';
 import { AuthGuard } from './auth.guard';
 import type { AuthenticatedRequest } from './types/authenticated-request';
-import { Throttle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { VerifyEmailQueryDto } from './dto/email-verification.dto';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
@@ -49,7 +49,8 @@ export class AuthController {
 
   // Register
   @ApiRegisterEndpoint()
-  @Throttle({ default: { limit: 5, ttl: 600000 } })
+  @Throttle({ authRegister: {} })
+  @SkipThrottle({ authLogin: true, authRefresh: true })
   @Post('register')
   register(
     @Body() registerRequestDto: RegisterRequestDto,
@@ -59,7 +60,8 @@ export class AuthController {
 
   // Login
   @ApiLoginEndpoint()
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle({ authLogin: {} })
+  @SkipThrottle({ authRegister: true, authRefresh: true })
   @Post('login')
   @HttpCode(200)
   login(@Body() loginRequestDto: LoginRequestDto) {
@@ -68,7 +70,8 @@ export class AuthController {
 
   // Refresh tokens
   @ApiRefreshEndpoint()
-  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @Throttle({ authRefresh: {} })
+  @SkipThrottle({ authLogin: true, authRegister: true })
   @Post('refresh')
   @HttpCode(200)
   refresh(@Body() refreshRequestDto: RefreshRequestDto) {
