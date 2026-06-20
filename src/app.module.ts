@@ -42,6 +42,27 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
 
         THROTTLE_DEFAULT_LIMIT: Joi.number().integer().positive().required(),
         THROTTLE_DEFAULT_TTL_MS: Joi.number().integer().positive().required(),
+        THROTTLE_AUTH_REGISTER_LIMIT: Joi.number()
+          .integer()
+          .positive()
+          .required(),
+        THROTTLE_AUTH_REGISTER_TTL_MS: Joi.number()
+          .integer()
+          .positive()
+          .required(),
+        THROTTLE_AUTH_LOGIN_LIMIT: Joi.number().integer().positive().required(),
+        THROTTLE_AUTH_LOGIN_TTL_MS: Joi.number()
+          .integer()
+          .positive()
+          .required(),
+        THROTTLE_AUTH_REFRESH_LIMIT: Joi.number()
+          .integer()
+          .positive()
+          .required(),
+        THROTTLE_AUTH_REFRESH_TTL_MS: Joi.number()
+          .integer()
+          .positive()
+          .required(),
 
         FRONTEND_ORIGIN: Joi.string().required(),
         EMAIL_VERIFICATION_RESULT_URL: Joi.string().required(),
@@ -73,8 +94,24 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => [
         {
-          ttl: config.getOrThrow<number>('throttlerDefault.ttlMs'),
-          limit: config.getOrThrow<number>('throttlerDefault.limit'),
+          name: 'default',
+          ttl: config.getOrThrow<number>('throttler.defaultTtlMs'),
+          limit: config.getOrThrow<number>('throttler.defaultLimit'),
+        },
+        {
+          name: 'authRegister',
+          ttl: config.getOrThrow<number>('throttler.registerTtlMs'),
+          limit: config.getOrThrow<number>('throttler.registerLimit'),
+        },
+        {
+          name: 'authLogin',
+          ttl: config.getOrThrow<number>('throttler.loginTtlMs'),
+          limit: config.getOrThrow<number>('throttler.loginLimit'),
+        },
+        {
+          name: 'authRefresh',
+          ttl: config.getOrThrow<number>('throttler.refreshTtlMs'),
+          limit: config.getOrThrow<number>('throttler.refreshLimit'),
         },
       ],
     }),

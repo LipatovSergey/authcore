@@ -24,9 +24,18 @@ export default () => ({
     parallelism: Number(process.env.ARGON2_PARALLELISM),
   },
 
-  throttlerDefault: {
-    limit: Number(process.env.THROTTLE_DEFAULT_LIMIT),
-    ttlMs: Number(process.env.THROTTLE_DEFAULT_TTL_MS),
+  throttler: {
+    defaultTtlMs: Number(process.env.THROTTLE_DEFAULT_TTL_MS),
+    defaultLimit: Number(process.env.THROTTLE_DEFAULT_LIMIT),
+
+    registerTtlMs: Number(process.env.THROTTLE_AUTH_REGISTER_TTL_MS),
+    registerLimit: Number(process.env.THROTTLE_AUTH_REGISTER_LIMIT),
+
+    loginLimit: Number(process.env.THROTTLE_AUTH_LOGIN_LIMIT),
+    loginTtlMs: Number(process.env.THROTTLE_AUTH_LOGIN_TTL_MS),
+
+    refreshLimit: Number(process.env.THROTTLE_AUTH_REFRESH_LIMIT),
+    refreshTtlMs: Number(process.env.THROTTLE_AUTH_REFRESH_TTL_MS),
   },
 
   frontendOrigin: process.env.FRONTEND_ORIGIN,

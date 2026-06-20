@@ -49,7 +49,7 @@ export class AuthController {
 
   // Register
   @ApiRegisterEndpoint()
-  @Throttle({ default: { limit: 5, ttl: 600000 } })
+  @Throttle({ authRegister: {} })
   @Post('register')
   register(
     @Body() registerRequestDto: RegisterRequestDto,
@@ -59,7 +59,7 @@ export class AuthController {
 
   // Login
   @ApiLoginEndpoint()
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle({ authLogin: {} })
   @Post('login')
   @HttpCode(200)
   login(@Body() loginRequestDto: LoginRequestDto) {
@@ -68,7 +68,7 @@ export class AuthController {
 
   // Refresh tokens
   @ApiRefreshEndpoint()
-  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @Throttle({ authRefresh: {} })
   @Post('refresh')
   @HttpCode(200)
   refresh(@Body() refreshRequestDto: RefreshRequestDto) {
