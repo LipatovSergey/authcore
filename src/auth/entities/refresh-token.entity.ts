@@ -13,6 +13,9 @@ export class RefreshToken {
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
+  @Column({ type: 'uuid', name: 'session_id' })
+  sessionId: string;
+
   @Column({ unique: true })
   jti: string;
 

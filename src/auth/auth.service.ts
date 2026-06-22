@@ -32,7 +32,9 @@ import {
   ResetPasswordResponseDto,
 } from './dto/reset-password.dto';
 import { NotificationsService } from '../notifications/notifications.service';
-
+import { SessionsService } from './sessions/sessions.service';
+import { RefreshToken } from './entities/refresh-token.entity';
+import { RefreshTokenReuseDetectedError } from './tokens/refresh-token-reuse-detected.error';
 export const VERIFY_EMAIL_OUTCOME = {
   VERIFIED: 'verified',
   ALREADY_VERIFIED: 'already_verified',
@@ -54,6 +56,7 @@ export class AuthService implements OnModuleInit {
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
     private readonly notificationService: NotificationsService,
+    private readonly sessionService: SessionsService,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -338,9 +341,23 @@ export class AuthService implements OnModuleInit {
       this.jwtTokensService.signRefreshToken(user.id),
     ]);
 
-    await this.refreshTokensService.create({
-      ...signedRefreshToken,
-      userId: user.id,
+    await this.dataSource.transaction(async (manager) => {
+      const session = await this.sessionService.createSession(
+        {
+          userId: user.id,
+          ipAddress: null,
+          userAgent: null,
+        },
+        manager,
+      );
+      await this.refreshTokensService.create(
+        {
+          ...signedRefreshToken,
+          userId: user.id,
+          sessionId: session.id,
+        },
+        manager,
+      );
     });
 
     this.logger.log(`User logged in: email=${user.email} userId=${user.id}`);
@@ -351,14 +368,38 @@ export class AuthService implements OnModuleInit {
   }
 
   async refresh(input: RefreshRequestDto): Promise<RefreshResponseDto> {
-    const tokenInstance = await this.refreshTokensService.validateOrThrow(
-      input.refresh_token,
-    );
+    let validatedToken: RefreshToken;
+    try {
+      validatedToken =
+        await this.refreshTokensService.validateActiveForRotationOrThrow(
+          input.refresh_token,
+        );
+    } catch (error) {
+      if (!(error instanceof RefreshTokenReuseDetectedError)) {
+        throw error;
+      }
 
-    const user = await this.usersService.findById(tokenInstance.userId);
+      await this.dataSource.transaction(async (manager) => {
+        const revokedAt = new Date();
+        await this.sessionService.revokeAllByUserId(
+          error.userId,
+          revokedAt,
+          manager,
+        );
+
+        await this.refreshTokensService.revokeAllByUserId(
+          error.userId,
+          revokedAt,
+          manager,
+        );
+      });
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const user = await this.usersService.findById(validatedToken.userId);
     if (!user) {
       this.logger.warn(
-        `Failed to refresh token because owner does not exist: userId=${tokenInstance.userId}`,
+        `Failed to refresh token because owner does not exist: userId=${validatedToken.userId}`,
       );
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -371,9 +412,29 @@ export class AuthService implements OnModuleInit {
       this.jwtTokensService.signRefreshToken(user.id),
     ]);
 
-    await this.refreshTokensService.rotate({
-      oldTokenId: tokenInstance.id,
-      newTokenInput: { ...signedRefreshToken, userId: user.id },
+    await this.dataSource.transaction(async (manager) => {
+      const activeSession =
+        await this.sessionService.validateActiveSessionOrThrow(
+          validatedToken.sessionId,
+          manager,
+        );
+
+      await this.refreshTokensService.rotate(
+        {
+          oldTokenId: validatedToken.id,
+          newTokenInput: {
+            ...signedRefreshToken,
+            userId: user.id,
+            sessionId: activeSession.id,
+          },
+        },
+        manager,
+      );
+
+      await this.sessionService.markSessionAsRefreshed(
+        activeSession.id,
+        manager,
+      );
     });
 
     this.logger.log(`Token refreshed: userId=${user.id}`);
@@ -384,21 +445,49 @@ export class AuthService implements OnModuleInit {
   }
 
   async logout(input: LogoutRequestDto): Promise<LogoutResponseDto> {
-    const dbToken = await this.refreshTokensService.validateOrThrow(
+    const dbToken = await this.refreshTokensService.verifyForRevocationOrThrow(
       input.refresh_token,
     );
 
-    await this.refreshTokensService.revoke(dbToken.id);
-    this.logger.log(`User logged out: userId=${dbToken.userId}`);
+    const revokedAt = new Date();
+
+    await this.dataSource.transaction(async (manager) => {
+      await this.sessionService.revoke(dbToken.sessionId, revokedAt, manager);
+
+      await this.refreshTokensService.revokeAllBySessionId(
+        dbToken.sessionId,
+        revokedAt,
+        manager,
+      );
+    });
+
+    this.logger.log(
+      `User logged out: userId=${dbToken.userId}, sessionId=${dbToken.sessionId}`,
+    );
     return { message: 'ok' };
   }
 
   async logoutAll(input: LogoutAllRequestDto): Promise<LogoutAllResponseDto> {
-    const dbToken = await this.refreshTokensService.validateOrThrow(
+    const dbToken = await this.refreshTokensService.verifyForRevocationOrThrow(
       input.refresh_token,
     );
 
-    await this.refreshTokensService.revokeAllByUserId(dbToken.userId);
+    const revokedAt = new Date();
+
+    await this.dataSource.transaction(async (manager) => {
+      await this.sessionService.revokeAllByUserId(
+        dbToken.userId,
+        revokedAt,
+        manager,
+      );
+
+      await this.refreshTokensService.revokeAllByUserId(
+        dbToken.userId,
+        revokedAt,
+        manager,
+      );
+    });
+
     this.logger.log(
       `User logged out from all sessions: userId=${dbToken.userId}`,
     );

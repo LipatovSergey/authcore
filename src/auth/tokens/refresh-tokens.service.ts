@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RefreshToken } from '../entities/refresh-token.entity';
-import { IsNull, LessThan, MoreThan, Repository } from 'typeorm';
+import { EntityManager, IsNull, LessThan, MoreThan, Repository } from 'typeorm';
 import {
   CreateRefreshTokenInput,
   RotateRefreshTokenInput,
@@ -17,6 +17,7 @@ import {
 } from '../interfaces/secure-hasher.interface';
 import type { RefreshTokenPayload } from '../types/jwt-tokens';
 import { JwtTokensService } from './jwt-tokens.service';
+import { RefreshTokenReuseDetectedError } from './refresh-token-reuse-detected.error';
 
 @Injectable()
 export class RefreshTokensService {
@@ -41,7 +42,7 @@ export class RefreshTokensService {
     }
   }
 
-  private async validateTokenOrThrow(
+  private async verifyAndLoadTokenOrThrow(
     jti: string,
     token: string,
   ): Promise<RefreshToken> {
@@ -60,34 +61,44 @@ export class RefreshTokensService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    return tokenInstance;
+  }
+
+  async create(
+    input: CreateRefreshTokenInput,
+    manager: EntityManager,
+  ): Promise<void> {
+    const repo = manager.getRepository(RefreshToken);
+    const tokenHash = await this.secureHasher.hash(input.rawToken);
+    const token = repo.create({
+      tokenHash,
+      jti: input.jti,
+      userId: input.userId,
+      sessionId: input.sessionId,
+      expiresAt: input.expiresAt,
+    });
+
+    await repo.save(token);
+  }
+
+  async verifyForRevocationOrThrow(token: string): Promise<RefreshToken> {
+    const { jti } = await this.verifyRefreshPayloadOrThrow(token);
+    const tokenInstance = await this.verifyAndLoadTokenOrThrow(jti, token);
+    return tokenInstance;
+  }
+
+  async validateActiveForRotationOrThrow(token: string): Promise<RefreshToken> {
+    const { jti } = await this.verifyRefreshPayloadOrThrow(token);
+    const tokenInstance = await this.verifyAndLoadTokenOrThrow(jti, token);
+
     // Known revoked token with a matching hash means possible refresh token reuse
     if (tokenInstance.revokedAt !== null) {
       this.logger.warn(
         `Refresh token reuse detected: userId=${tokenInstance.userId}`,
       );
-      await this.revokeAllByUserId(tokenInstance.userId);
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new RefreshTokenReuseDetectedError(tokenInstance.userId);
     }
-
     return tokenInstance;
-  }
-
-  async create(input: CreateRefreshTokenInput): Promise<void> {
-    const tokenHash = await this.secureHasher.hash(input.rawToken);
-    const token = this.repo.create({
-      tokenHash,
-      jti: input.jti,
-      userId: input.userId,
-      expiresAt: input.expiresAt,
-    });
-
-    await this.repo.save(token);
-  }
-
-  async validateOrThrow(token: string): Promise<RefreshToken> {
-    const { jti } = await this.verifyRefreshPayloadOrThrow(token);
-    const dbToken = await this.validateTokenOrThrow(jti, token);
-    return dbToken;
   }
 
   async findByJti(jti: string): Promise<RefreshToken | null> {
@@ -101,40 +112,65 @@ export class RefreshTokensService {
     }
   }
 
-  async rotate(input: RotateRefreshTokenInput): Promise<void> {
-    const now = new Date();
-    await this.repo.manager.transaction(async (manager) => {
-      const txRepo = manager.getRepository(RefreshToken);
-      const { affected } = await txRepo.update(
-        {
-          id: input.oldTokenId,
-          revokedAt: IsNull(),
-          expiresAt: MoreThan(now),
-        },
-        {
-          revokedAt: now,
-        },
-      );
+  async revokeAllBySessionId(
+    sessionId: string,
+    revokedAt: Date,
+    manager: EntityManager,
+  ) {
+    const repo = manager.getRepository(RefreshToken);
+    const { affected } = await repo.update(
+      { sessionId, revokedAt: IsNull() },
+      { revokedAt: revokedAt },
+    );
 
-      if (affected !== 1) {
-        throw new UnauthorizedException('Invalid refresh token');
-      }
-
-      const { newTokenInput } = input;
-      const newTokenHash = await this.secureHasher.hash(newTokenInput.rawToken);
-      const newTokenInsert = {
-        tokenHash: newTokenHash,
-        jti: newTokenInput.jti,
-        userId: newTokenInput.userId,
-        expiresAt: newTokenInput.expiresAt,
-      };
-
-      await txRepo.insert(newTokenInsert);
-    });
+    return affected;
   }
 
-  async revokeAllByUserId(userId: string): Promise<void> {
-    await this.repo.update({ userId }, { revokedAt: new Date() });
+  async rotate(
+    input: RotateRefreshTokenInput,
+    manager: EntityManager,
+  ): Promise<void> {
+    const now = new Date();
+    const txRepo = manager.getRepository(RefreshToken);
+    const { affected } = await txRepo.update(
+      {
+        id: input.oldTokenId,
+        revokedAt: IsNull(),
+        expiresAt: MoreThan(now),
+      },
+      {
+        revokedAt: now,
+      },
+    );
+
+    if (affected !== 1) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const { newTokenInput } = input;
+    const newTokenHash = await this.secureHasher.hash(newTokenInput.rawToken);
+    const newTokenInsert = {
+      tokenHash: newTokenHash,
+      jti: newTokenInput.jti,
+      userId: newTokenInput.userId,
+      expiresAt: newTokenInput.expiresAt,
+      sessionId: newTokenInput.sessionId,
+    };
+
+    await txRepo.insert(newTokenInsert);
+  }
+
+  async revokeAllByUserId(
+    userId: string,
+    revokedAt: Date,
+    manager: EntityManager,
+  ) {
+    const repo = manager.getRepository(RefreshToken);
+    const { affected } = await repo.update(
+      { userId, revokedAt: IsNull() },
+      { revokedAt: revokedAt },
+    );
+    return affected;
   }
 
   async cleanupStaleTokens(cutoff: Date): Promise<number> {

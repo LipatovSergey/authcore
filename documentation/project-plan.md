@@ -247,11 +247,12 @@ Production-style deployment:
 - RS256 JWT signing
 - Public key endpoint
 - Production email provider integration
+- Google OAuth login
 - More complete client integration examples
 
 ## Non-Goals
 
-- OAuth and social login
+- Full social login provider set beyond Google OAuth
 - Full user-facing HTML pages served directly by the backend
 - API gateway inside this project
 - Horizontal scaling

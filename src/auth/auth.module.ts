@@ -19,6 +19,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { EmailVerificationTokensCleanupService } from './cleanup/email-verification-tokens-cleanup.service';
 import { PasswordResetTokensCleanupService } from './cleanup/password-reset-tokens-cleanup.service';
 import { RefreshTokensCleanupService } from './cleanup/refresh-tokens-cleanup.service';
+import { Session } from './sessions/session.entity';
+import { SessionsService } from './sessions/sessions.service';
 
 @Module({
   imports: [
@@ -37,6 +39,7 @@ import { RefreshTokensCleanupService } from './cleanup/refresh-tokens-cleanup.se
       RefreshToken,
       EmailVerificationToken,
       PasswordResetToken,
+      Session,
     ]),
     NotificationsModule,
   ],
@@ -51,6 +54,7 @@ import { RefreshTokensCleanupService } from './cleanup/refresh-tokens-cleanup.se
     PasswordResetTokensCleanupService,
     PasswordResetTokensService,
     UnverifiedUsersCleanupService,
+    SessionsService,
     { provide: SECURE_HASHER, useClass: Argon2PasswordHasher },
   ],
 })
