@@ -1,22 +1,28 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { createTestApp } from '../helpers/test-app.helper';
 import {
   getLastEmailVerificationUrl,
   type NotificationsServiceMock,
 } from '../mocks/notifications-service.mock';
+import { Session } from '../../src/auth/sessions/session.entity';
+import { RefreshTokensService } from '../../src/auth/tokens/refresh-tokens.service';
 
 describe('/auth/login (POST)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
   let notificationsServiceMock: NotificationsServiceMock;
+  let sessionsRepository: Repository<Session>;
+  let refreshTokensService: RefreshTokensService;
 
   beforeAll(async () => {
     ({ app, dataSource, httpServer, notificationsServiceMock } =
       await createTestApp());
+    sessionsRepository = dataSource.getRepository(Session);
+    refreshTokensService = app.get(RefreshTokensService);
   });
 
   afterAll(async () => {
@@ -48,6 +54,17 @@ describe('/auth/login (POST)', () => {
       access_token: expect.any(String),
       refresh_token: expect.any(String),
     });
+    const rawRefreshToken = res.body.refresh_token;
+    const validRefreshToken =
+      await refreshTokensService.validateActiveForRotationOrThrow(
+        rawRefreshToken,
+      );
+    const session = await sessionsRepository.findOneByOrFail({
+      id: validRefreshToken.sessionId,
+    });
+    expect(session.userId).toBe(validRefreshToken.userId);
+    expect(session.revokedAt).toBeNull();
+    expect(session.lastRefreshedAt).toBeNull();
   });
 
   it('returns 401 when user does not exist', async () => {

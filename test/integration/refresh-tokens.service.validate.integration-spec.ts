@@ -5,11 +5,13 @@ import { RefreshToken } from '../../src/auth/entities/refresh-token.entity';
 import { RefreshTokensService } from '../../src/auth/tokens/refresh-tokens.service';
 import { createUserFixture } from '../helpers/user-fixture.helper';
 import { JwtTokensService } from '../../src/auth/tokens/jwt-tokens.service';
+import { Session } from '../../src/auth/sessions/session.entity';
 import {
   SECURE_HASHER,
   type SecureHasher,
 } from '../../src/auth/interfaces/secure-hasher.interface';
 import { randomUUID } from 'crypto';
+import { RefreshTokenReuseDetectedError } from '../../src/auth/tokens/refresh-token-reuse-detected.error';
 
 describe('RefreshTokensService.validateOrThrow', () => {
   let app: INestApplication;
@@ -18,6 +20,7 @@ describe('RefreshTokensService.validateOrThrow', () => {
   let refreshTokensService: RefreshTokensService;
   let jwtTokensService: JwtTokensService;
   let secureHasher: SecureHasher;
+  let sessionRepository: Repository<Session>;
 
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -27,6 +30,7 @@ describe('RefreshTokensService.validateOrThrow', () => {
     refreshTokensService = app.get(RefreshTokensService);
     jwtTokensService = app.get(JwtTokensService);
     secureHasher = app.get(SECURE_HASHER);
+    sessionRepository = dataSource.getRepository(Session);
   });
 
   afterAll(async () => {
@@ -37,16 +41,28 @@ describe('RefreshTokensService.validateOrThrow', () => {
     await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
   });
 
+  async function createSessionFixture(userId: string) {
+    return sessionRepository.save({
+      userId,
+      userAgent: null,
+      ipAddress: null,
+      lastRefreshedAt: null,
+      revokedAt: null,
+    });
+  }
+
   async function createRefreshTokenFixture(input: {
     userId: string;
     jti: string;
+    sessionId: string;
     tokenHash: string;
     expiresAt: Date;
     revokedAt?: Date | null;
   }) {
-    return await refreshTokensRepository.save({
+    return refreshTokensRepository.save({
       userId: input.userId,
       jti: input.jti,
+      sessionId: input.sessionId,
       tokenHash: input.tokenHash,
       expiresAt: input.expiresAt,
       revokedAt: input.revokedAt ?? null,
@@ -57,14 +73,17 @@ describe('RefreshTokensService.validateOrThrow', () => {
     const { id: userId } = await createUserFixture(dataSource);
     const { rawToken, jti } = await jwtTokensService.signRefreshToken(userId);
     const tokenHash = await secureHasher.hash(rawToken);
+    const { id: sessionId } = await createSessionFixture(userId);
     const storedToken = await createRefreshTokenFixture({
       userId,
       jti,
+      sessionId,
       tokenHash,
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: null,
     });
-    const validatedToken = await refreshTokensService.validateOrThrow(rawToken);
+    const validatedToken =
+      await refreshTokensService.validateActiveForRotationOrThrow(rawToken);
     expect(validatedToken.id).toBe(storedToken.id);
     expect(validatedToken.userId).toBe(userId);
     expect(validatedToken.jti).toBe(storedToken.jti);
@@ -73,7 +92,7 @@ describe('RefreshTokensService.validateOrThrow', () => {
 
   it('rejects malformed/invalid JWT', async () => {
     await expect(
-      refreshTokensService.validateOrThrow('invalid-jwt'),
+      refreshTokensService.validateActiveForRotationOrThrow('invalid-jwt'),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
@@ -81,15 +100,17 @@ describe('RefreshTokensService.validateOrThrow', () => {
     const { id: userId } = await createUserFixture(dataSource);
     const { rawToken } = await jwtTokensService.signRefreshToken(userId);
     await expect(
-      refreshTokensService.validateOrThrow(rawToken),
+      refreshTokensService.validateActiveForRotationOrThrow(rawToken),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it('rejects expired token without revoking active tokens', async () => {
+  it('rejects expired refresh token', async () => {
     const { id: userId } = await createUserFixture(dataSource);
+    const { id: sessionId } = await createSessionFixture(userId);
     const firstActiveToken = await createRefreshTokenFixture({
       userId,
       jti: randomUUID(),
+      sessionId,
       tokenHash: `test-token-hash-${randomUUID()}`,
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: null,
@@ -97,6 +118,7 @@ describe('RefreshTokensService.validateOrThrow', () => {
     const secondActiveToken = await createRefreshTokenFixture({
       userId,
       jti: randomUUID(),
+      sessionId,
       tokenHash: `test-token-hash-${randomUUID()}`,
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: null,
@@ -106,12 +128,13 @@ describe('RefreshTokensService.validateOrThrow', () => {
     await createRefreshTokenFixture({
       userId,
       jti,
+      sessionId,
       tokenHash,
       expiresAt: new Date(Date.now() - ONE_DAY_MS),
       revokedAt: null,
     });
     await expect(
-      refreshTokensService.validateOrThrow(rawToken),
+      refreshTokensService.validateActiveForRotationOrThrow(rawToken),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     const storedActiveTokens = await refreshTokensRepository.findBy({
       id: In([firstActiveToken.id, secondActiveToken.id]),
@@ -122,11 +145,13 @@ describe('RefreshTokensService.validateOrThrow', () => {
     );
   });
 
-  it('rejects token with mismatched hash without revoking active tokens', async () => {
+  it('rejects token with mismatched hash', async () => {
     const { id: userId } = await createUserFixture(dataSource);
+    const { id: sessionId } = await createSessionFixture(userId);
     const firstActiveToken = await createRefreshTokenFixture({
       userId,
       jti: randomUUID(),
+      sessionId,
       tokenHash: `test-token-hash-${randomUUID()}`,
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: null,
@@ -134,6 +159,7 @@ describe('RefreshTokensService.validateOrThrow', () => {
     const secondActiveToken = await createRefreshTokenFixture({
       userId,
       jti: randomUUID(),
+      sessionId,
       tokenHash: `test-token-hash-${randomUUID()}`,
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: null,
@@ -145,12 +171,13 @@ describe('RefreshTokensService.validateOrThrow', () => {
     await createRefreshTokenFixture({
       userId,
       jti,
+      sessionId,
       tokenHash: mismatchedTokenHash,
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: null,
     });
     await expect(
-      refreshTokensService.validateOrThrow(rawToken),
+      refreshTokensService.validateActiveForRotationOrThrow(rawToken),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     const storedActiveTokens = await refreshTokensRepository.findBy({
       id: In([firstActiveToken.id, secondActiveToken.id]),
@@ -161,11 +188,13 @@ describe('RefreshTokensService.validateOrThrow', () => {
     );
   });
 
-  it('detects reused revoked token and revokes active user tokens', async () => {
+  it('detects reused revoked token and throw error', async () => {
     const { id: userId } = await createUserFixture(dataSource);
+    const { id: sessionId } = await createSessionFixture(userId);
     await createRefreshTokenFixture({
       userId,
       jti: randomUUID(),
+      sessionId,
       tokenHash: `test-token-hash-${randomUUID()}`,
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: null,
@@ -173,6 +202,7 @@ describe('RefreshTokensService.validateOrThrow', () => {
     await createRefreshTokenFixture({
       userId,
       jti: randomUUID(),
+      sessionId,
       tokenHash: `test-token-hash-${randomUUID()}`,
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: null,
@@ -182,64 +212,18 @@ describe('RefreshTokensService.validateOrThrow', () => {
     await createRefreshTokenFixture({
       userId,
       jti,
+      sessionId,
       tokenHash,
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: new Date(Date.now() - ONE_DAY_MS),
     });
-    await expect(
-      refreshTokensService.validateOrThrow(rawToken),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    const validation =
+      refreshTokensService.validateActiveForRotationOrThrow(rawToken);
 
-    const allUserRefreshTokens = await refreshTokensRepository.findBy({
-      userId: userId,
-    });
-    expect(allUserRefreshTokens).toHaveLength(3);
-    expect(
-      allUserRefreshTokens.every((token) => token.revokedAt !== null),
-    ).toBe(true);
-  });
-
-  it('does not revoke tokens of other users when reuse is detected', async () => {
-    const unaffectedUser = await createUserFixture(dataSource);
-    const unaffectedUserActiveToken = await createRefreshTokenFixture({
-      userId: unaffectedUser.id,
-      jti: randomUUID(),
-      tokenHash: `test-token-hash-${randomUUID()}`,
-      expiresAt: new Date(Date.now() + ONE_DAY_MS),
-      revokedAt: null,
-    });
-    const compromisedUser = await createUserFixture(dataSource);
-    await createRefreshTokenFixture({
-      userId: compromisedUser.id,
-      jti: randomUUID(),
-      tokenHash: `test-token-hash-${randomUUID()}`,
-      expiresAt: new Date(Date.now() + ONE_DAY_MS),
-      revokedAt: null,
-    });
-    const { rawToken, jti } = await jwtTokensService.signRefreshToken(
-      compromisedUser.id,
+    await expect(validation).rejects.toBeInstanceOf(
+      RefreshTokenReuseDetectedError,
     );
-    const tokenHash = await secureHasher.hash(rawToken);
-    await createRefreshTokenFixture({
-      userId: compromisedUser.id,
-      jti,
-      tokenHash,
-      expiresAt: new Date(Date.now() + ONE_DAY_MS),
-      revokedAt: new Date(Date.now() - ONE_DAY_MS),
-    });
-    await expect(
-      refreshTokensService.validateOrThrow(rawToken),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
-    const compromisedUserTokens = await refreshTokensRepository.findBy({
-      userId: compromisedUser.id,
-    });
-    expect(compromisedUserTokens).toHaveLength(2);
-    expect(
-      compromisedUserTokens.every((token) => token.revokedAt !== null),
-    ).toBe(true);
-    const unaffectedUserStoredToken = await refreshTokensRepository.findOneBy({
-      id: unaffectedUserActiveToken.id,
-    });
-    expect(unaffectedUserStoredToken?.revokedAt).toBeNull();
+
+    await expect(validation).rejects.toHaveProperty('userId', userId);
   });
 });
