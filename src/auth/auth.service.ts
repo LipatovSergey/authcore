@@ -35,6 +35,9 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { SessionsService } from './sessions/sessions.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { RefreshTokenReuseDetectedError } from './tokens/refresh-token-reuse-detected.error';
+import { GetSessionsResponseDto } from './dto/get-sessions.dto';
+import { RevokeSessionResponseDto } from './dto/revoke-session.dto';
+import { RevokeOtherSessionsResponseDto } from './dto/revoke-other-sessions.dto';
 export const VERIFY_EMAIL_OUTCOME = {
   VERIFIED: 'verified',
   ALREADY_VERIFIED: 'already_verified',
@@ -110,8 +113,8 @@ export class AuthService implements OnModuleInit {
     if (!user || user.isEmailVerified) {
       return { message: 'ok' };
     }
-    // sign email verification token
-    const signedEmailVerificationToken =
+    // issue email verification token
+    const issuedEmailVerificationToken =
       await this.jwtTokensService.signEmailVerificationToken(user.id);
 
     let shouldSendEmail = false;
@@ -130,7 +133,7 @@ export class AuthService implements OnModuleInit {
 
       await this.emailVerificationTokensService.setActiveTokenWithManager(
         {
-          ...signedEmailVerificationToken,
+          ...issuedEmailVerificationToken,
           userId: user.id,
         },
         manager,
@@ -147,7 +150,7 @@ export class AuthService implements OnModuleInit {
     verificationLink.pathname = '/auth/email-verification';
     verificationLink.searchParams.set(
       'token',
-      signedEmailVerificationToken.rawToken,
+      issuedEmailVerificationToken.rawToken,
     );
     // send email
     try {
@@ -200,14 +203,14 @@ export class AuthService implements OnModuleInit {
     if (!user) {
       return { message: 'ok' };
     }
-    // sign password reset token
-    const signedPasswordResetToken =
+    // issue password reset token
+    const issuedPasswordResetToken =
       await this.jwtTokensService.signPasswordResetToken(user.id);
     // open transaction
     await this.dataSource.transaction(async (manager) => {
       await this.passwordResetTokenService.setActiveTokenWithManager(
         {
-          ...signedPasswordResetToken,
+          ...issuedPasswordResetToken,
           userId: user.id,
         },
         manager,
@@ -226,7 +229,7 @@ export class AuthService implements OnModuleInit {
     const passwordResetLink = new URL(baseUrl);
     passwordResetLink.searchParams.set(
       'token',
-      signedPasswordResetToken.rawToken,
+      issuedPasswordResetToken.rawToken,
     );
     // send email
     try {
@@ -254,7 +257,7 @@ export class AuthService implements OnModuleInit {
     const passwordHash = await this.secureHasher.hash(input.password);
     const unverifiedExpiresAt = this.calculateUnverifiedUserExpiresAt();
 
-    const { user, signedEmailVerificationToken } =
+    const { user, issuedEmailVerificationToken } =
       await this.dataSource.transaction(async (manager) => {
         const user = await this.usersService.createUserWithManager(
           {
@@ -264,17 +267,17 @@ export class AuthService implements OnModuleInit {
           },
           manager,
         );
-        const signedEmailVerificationToken =
+        const issuedEmailVerificationToken =
           await this.jwtTokensService.signEmailVerificationToken(user.id);
 
         await this.emailVerificationTokensService.setActiveTokenWithManager(
           {
-            ...signedEmailVerificationToken,
+            ...issuedEmailVerificationToken,
             userId: user.id,
           },
           manager,
         );
-        return { user, signedEmailVerificationToken };
+        return { user, issuedEmailVerificationToken };
       });
     // create email verification link
     const baseUrl = this.config.getOrThrow<string>('authPublicUrl');
@@ -282,7 +285,7 @@ export class AuthService implements OnModuleInit {
     verificationLink.pathname = '/auth/email-verification';
     verificationLink.searchParams.set(
       'token',
-      signedEmailVerificationToken.rawToken,
+      issuedEmailVerificationToken.rawToken,
     );
     // send email
     try {
@@ -333,15 +336,11 @@ export class AuthService implements OnModuleInit {
       });
     }
 
-    const [rawAccessToken, signedRefreshToken] = await Promise.all([
-      this.jwtTokensService.signAccessToken({
-        sub: user.id,
-        email: user.email,
-      }),
-      this.jwtTokensService.signRefreshToken(user.id),
-    ]);
+    const issuedRefreshToken = await this.jwtTokensService.signRefreshToken(
+      user.id,
+    );
 
-    await this.dataSource.transaction(async (manager) => {
+    const sessionId = await this.dataSource.transaction(async (manager) => {
       const session = await this.sessionService.createSession(
         {
           userId: user.id,
@@ -352,18 +351,26 @@ export class AuthService implements OnModuleInit {
       );
       await this.refreshTokensService.create(
         {
-          ...signedRefreshToken,
+          ...issuedRefreshToken,
           userId: user.id,
           sessionId: session.id,
         },
         manager,
       );
+
+      return session.id;
+    });
+
+    const rawAccessToken = await this.jwtTokensService.signAccessToken({
+      sub: user.id,
+      email: user.email,
+      sessionId,
     });
 
     this.logger.log(`User logged in: email=${user.email} userId=${user.id}`);
     return {
       access_token: rawAccessToken,
-      refresh_token: signedRefreshToken.rawToken,
+      refresh_token: issuedRefreshToken.rawToken,
     };
   }
 
@@ -378,7 +385,6 @@ export class AuthService implements OnModuleInit {
       if (!(error instanceof RefreshTokenReuseDetectedError)) {
         throw error;
       }
-
       await this.dataSource.transaction(async (manager) => {
         const revokedAt = new Date();
         await this.sessionService.revokeAllByUserId(
@@ -386,7 +392,6 @@ export class AuthService implements OnModuleInit {
           revokedAt,
           manager,
         );
-
         await this.refreshTokensService.revokeAllByUserId(
           error.userId,
           revokedAt,
@@ -404,18 +409,15 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const [rawAccessToken, signedRefreshToken] = await Promise.all([
-      this.jwtTokensService.signAccessToken({
-        sub: user.id,
-        email: user.email,
-      }),
-      this.jwtTokensService.signRefreshToken(user.id),
-    ]);
+    const issuedRefreshToken = await this.jwtTokensService.signRefreshToken(
+      user.id,
+    );
 
-    await this.dataSource.transaction(async (manager) => {
+    const sessionId = await this.dataSource.transaction(async (manager) => {
       const activeSession =
-        await this.sessionService.validateActiveSessionOrThrow(
+        await this.sessionService.validateActiveUserSessionOrThrow(
           validatedToken.sessionId,
+          user.id,
           manager,
         );
 
@@ -423,7 +425,7 @@ export class AuthService implements OnModuleInit {
         {
           oldTokenId: validatedToken.id,
           newTokenInput: {
-            ...signedRefreshToken,
+            ...issuedRefreshToken,
             userId: user.id,
             sessionId: activeSession.id,
           },
@@ -435,12 +437,20 @@ export class AuthService implements OnModuleInit {
         activeSession.id,
         manager,
       );
+
+      return activeSession.id;
+    });
+
+    const rawAccessToken = await this.jwtTokensService.signAccessToken({
+      sub: user.id,
+      email: user.email,
+      sessionId,
     });
 
     this.logger.log(`Token refreshed: userId=${user.id}`);
     return {
       access_token: rawAccessToken,
-      refresh_token: signedRefreshToken.rawToken,
+      refresh_token: issuedRefreshToken.rawToken,
     };
   }
 
@@ -490,6 +500,110 @@ export class AuthService implements OnModuleInit {
 
     this.logger.log(
       `User logged out from all sessions: userId=${dbToken.userId}`,
+    );
+    return { message: 'ok' };
+  }
+
+  async getActiveSessions(input: {
+    sessionId: string;
+    userId: string;
+  }): Promise<GetSessionsResponseDto> {
+    const { sessionId, userId } = input;
+    const activeSessionsEntities = await this.dataSource.transaction(
+      async (manager) => {
+        const validActiveSession =
+          await this.sessionService.validateActiveUserSessionOrThrow(
+            sessionId,
+            userId,
+            manager,
+          );
+        return this.sessionService.findActiveByUserId(
+          validActiveSession.userId,
+          manager,
+        );
+      },
+    );
+
+    return {
+      sessions: activeSessionsEntities.map((sessionEntity) => ({
+        id: sessionEntity.id,
+        user_agent: sessionEntity.userAgent,
+        ip_address: sessionEntity.ipAddress,
+        created_at: sessionEntity.createdAt,
+        last_refreshed_at: sessionEntity.lastRefreshedAt,
+      })),
+    };
+  }
+
+  async revokeUserSession(input: {
+    userId: string;
+    sessionId: string;
+  }): Promise<RevokeSessionResponseDto> {
+    const { userId, sessionId } = input;
+    const revokedAt = new Date();
+
+    const revokedRefreshTokensCount = await this.dataSource.transaction(
+      async (manager) => {
+        await this.sessionService.validateActiveUserSessionOrThrow(
+          sessionId,
+          userId,
+          manager,
+        );
+
+        await this.sessionService.revoke(sessionId, revokedAt, manager);
+
+        const revokedRefreshTokensCount =
+          await this.refreshTokensService.revokeAllBySessionId(
+            sessionId,
+            revokedAt,
+            manager,
+          );
+
+        return revokedRefreshTokensCount;
+      },
+    );
+
+    this.logger.log(
+      `User session revoked: userId=${userId}, sessionId=${sessionId}, revoked refresh tokens=${revokedRefreshTokensCount}`,
+    );
+    return { message: 'ok' };
+  }
+
+  async revokeOtherUserSessions(input: {
+    userId: string;
+    sessionId: string;
+  }): Promise<RevokeOtherSessionsResponseDto> {
+    const { userId, sessionId } = input;
+    const revokedAt = new Date();
+
+    const { revokedSessionsCount, revokedRefreshTokensCount } =
+      await this.dataSource.transaction(async (manager) => {
+        await this.sessionService.validateActiveUserSessionOrThrow(
+          sessionId,
+          userId,
+          manager,
+        );
+        const revokedSessionsCount =
+          await this.sessionService.revokeAllByUserIdExceptSessionId(
+            userId,
+            sessionId,
+            revokedAt,
+            manager,
+          );
+
+        const revokedRefreshTokensCount =
+          await this.refreshTokensService.revokeAllByUserIdExceptSessionId(
+            userId,
+            sessionId,
+            revokedAt,
+            manager,
+          );
+
+        return { revokedSessionsCount, revokedRefreshTokensCount };
+      });
+
+    this.logger.log(
+      `Other sessions revoked: userId=${userId}, currentSessionId=${sessionId}, revokedSessions=${revokedSessionsCount}, revokedRefreshTokens=${revokedRefreshTokensCount}`,
     );
     return { message: 'ok' };
   }
