@@ -24,6 +24,9 @@ import { RegisterResponseDto } from './dto/register.dto';
 import { EmailVerificationResendResponseDto } from './dto/email-verification-resend.dto';
 import { ForgotPasswordResponseDto } from './dto/forgot-password.dto';
 import { ResetPasswordResponseDto } from './dto/reset-password.dto';
+import { GetSessionsResponseDto } from './dto/get-sessions.dto';
+import { RevokeSessionResponseDto } from './dto/revoke-session.dto';
+import { RevokeOtherSessionsResponseDto } from './dto/revoke-other-sessions.dto';
 
 export function ApiAuthController() {
   return applyDecorators(ApiTags('auth'));
@@ -133,6 +136,56 @@ export function ApiGetProfileEndpoint() {
     }),
     ApiUnauthorizedResponse({
       description: 'Access token is missing or invalid',
+      type: UnauthorizedErrorResponseDto,
+    }),
+  );
+}
+
+export function ApiGetSessionsEndpoint() {
+  return applyDecorators(
+    ApiBearerAuth('bearer'),
+    ApiOperation({ summary: 'Get active auth sessions' }),
+    ApiOkResponse({
+      description: 'Active auth sessions returned successfully',
+      type: GetSessionsResponseDto,
+    }),
+    ApiUnauthorizedResponse({
+      description: 'Access token is missing, invalid, or session is revoked',
+      type: UnauthorizedErrorResponseDto,
+    }),
+  );
+}
+
+export function ApiRevokeSessionEndpoint() {
+  return applyDecorators(
+    ApiBearerAuth('bearer'),
+    ApiOperation({ summary: 'Revoke an auth session' }),
+    ApiOkResponse({
+      description: 'Auth session revoked successfully',
+      type: RevokeSessionResponseDto,
+    }),
+    ApiBadRequestResponse({
+      description: 'Validation failed',
+      type: ValidationErrorResponseDto,
+    }),
+    ApiUnauthorizedResponse({
+      description:
+        'Access token is missing, invalid, session is revoked, or target session does not belong to the user',
+      type: UnauthorizedErrorResponseDto,
+    }),
+  );
+}
+
+export function ApiRevokeOtherSessionsEndpoint() {
+  return applyDecorators(
+    ApiBearerAuth('bearer'),
+    ApiOperation({ summary: 'Revoke all other auth sessions' }),
+    ApiOkResponse({
+      description: 'Other auth sessions revoked successfully',
+      type: RevokeOtherSessionsResponseDto,
+    }),
+    ApiUnauthorizedResponse({
+      description: 'Access token is missing, invalid, or session is revoked',
       type: UnauthorizedErrorResponseDto,
     }),
   );

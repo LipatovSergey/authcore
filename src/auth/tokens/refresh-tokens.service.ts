@@ -6,7 +6,14 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RefreshToken } from '../entities/refresh-token.entity';
-import { EntityManager, IsNull, LessThan, MoreThan, Repository } from 'typeorm';
+import {
+  EntityManager,
+  IsNull,
+  LessThan,
+  MoreThan,
+  Not,
+  Repository,
+} from 'typeorm';
 import {
   CreateRefreshTokenInput,
   RotateRefreshTokenInput,
@@ -123,9 +130,23 @@ export class RefreshTokensService {
       { revokedAt: revokedAt },
     );
 
-    return affected;
+    return affected ?? 0;
   }
 
+  async revokeAllByUserIdExceptSessionId(
+    userId: string,
+    sessionId: string,
+    revokedAt: Date,
+    manager: EntityManager,
+  ) {
+    const repo = manager.getRepository(RefreshToken);
+    const { affected } = await repo.update(
+      { userId, sessionId: Not(sessionId), revokedAt: IsNull() },
+      { revokedAt: revokedAt },
+    );
+
+    return affected ?? 0;
+  }
   async rotate(
     input: RotateRefreshTokenInput,
     manager: EntityManager,
@@ -170,7 +191,7 @@ export class RefreshTokensService {
       { userId, revokedAt: IsNull() },
       { revokedAt: revokedAt },
     );
-    return affected;
+    return affected ?? 0;
   }
 
   async cleanupStaleTokens(cutoff: Date): Promise<number> {

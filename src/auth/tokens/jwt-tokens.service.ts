@@ -6,7 +6,7 @@ import type {
   AccessTokenPayload,
   RefreshTokenPayload,
   EmailVerificationTokenPayload,
-  SignedRefreshToken,
+  IssuedRefreshToken,
   PasswordResetTokenPayload,
 } from '../types/jwt-tokens';
 
@@ -84,7 +84,7 @@ export class JwtTokensService {
     });
   }
 
-  async signRefreshToken(sub: string): Promise<SignedRefreshToken> {
+  async signRefreshToken(sub: string): Promise<IssuedRefreshToken> {
     const jti = randomUUID();
     const payload: RefreshTokenPayload = { sub, jti };
     const rawToken = await this.jwtService.signAsync(payload, {

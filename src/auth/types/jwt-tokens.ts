@@ -6,6 +6,7 @@ export interface RefreshTokenPayload {
 export interface AccessTokenPayload {
   sub: string;
   email: string;
+  sessionId: string;
 }
 
 export interface EmailVerificationTokenPayload {
@@ -18,13 +19,13 @@ export interface PasswordResetTokenPayload {
   jti: string;
 }
 
-export interface SignedRefreshToken {
+export interface IssuedRefreshToken {
   rawToken: string;
   jti: string;
   expiresAt: Date;
 }
 
-export interface SignedEmailVerificationToken {
+export interface IssuedEmailVerificationToken {
   rawToken: string;
   jti: string;
   expiresAt: Date;

@@ -28,12 +28,12 @@ export async function createEmailVerificationTokenFixture(
     overrides,
   } = params;
 
-  const signedToken = await jwtTokensService.signEmailVerificationToken(userId);
+  const issuedToken = await jwtTokensService.signEmailVerificationToken(userId);
 
   await dataSource.transaction(async (manager) => {
     await emailVerificationTokensService.setActiveTokenWithManager(
       {
-        ...signedToken,
+        ...issuedToken,
         userId,
       },
       manager,
@@ -41,7 +41,7 @@ export async function createEmailVerificationTokenFixture(
   });
 
   const repo = dataSource.getRepository(EmailVerificationToken);
-  const token = await repo.findOneBy({ jti: signedToken.jti });
+  const token = await repo.findOneBy({ jti: issuedToken.jti });
   if (!token) {
     throw new Error('Expected email verification token to be created');
   }
@@ -60,7 +60,7 @@ export async function createEmailVerificationTokenFixture(
   }
 
   return {
-    rawToken: signedToken.rawToken,
+    rawToken: issuedToken.rawToken,
     token: tokenAfter,
   };
 }

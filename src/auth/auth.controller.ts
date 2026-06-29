@@ -9,6 +9,8 @@ import {
   Header,
   Query,
   Res,
+  Param,
+  Delete,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
@@ -29,15 +31,19 @@ import {
   ApiEmailVerificationResendEndpoint,
   ApiForgotPasswordEndpoint,
   ApiGetProfileEndpoint,
+  ApiGetSessionsEndpoint,
   ApiLoginEndpoint,
   ApiLogoutAllEndpoint,
   ApiLogoutEndpoint,
   ApiRefreshEndpoint,
   ApiRegisterEndpoint,
+  ApiRevokeOtherSessionsEndpoint,
+  ApiRevokeSessionEndpoint,
   ApiResetPasswordEndpoint,
 } from './auth-swagger.decorators';
 import { ForgotPasswordRequestDto } from './dto/forgot-password.dto';
 import { ResetPasswordRequestDto } from './dto/reset-password.dto';
+import { SessionIdParamDto } from './dto/revoke-session.dto';
 
 @ApiAuthController()
 @Controller('auth')
@@ -47,7 +53,6 @@ export class AuthController {
     private readonly config: ConfigService,
   ) {}
 
-  // Register
   @ApiRegisterEndpoint()
   @Throttle({ authRegister: {} })
   @SkipThrottle({ authLogin: true, authRefresh: true })
@@ -101,6 +106,44 @@ export class AuthController {
   @Header('Cache-Control', 'no-store')
   getProfile(@Request() req: AuthenticatedRequest) {
     return this.authService.getProfile(req.payload.sub);
+  }
+
+  // Get all user's active sessions
+  @ApiGetSessionsEndpoint()
+  @Get('sessions')
+  @UseGuards(AuthGuard)
+  @HttpCode(200)
+  getSessions(@Request() req: AuthenticatedRequest) {
+    return this.authService.getActiveSessions({
+      sessionId: req.payload.sessionId,
+      userId: req.payload.sub,
+    });
+  }
+
+  @ApiRevokeOtherSessionsEndpoint()
+  @Delete('sessions/others')
+  @UseGuards(AuthGuard)
+  @HttpCode(200)
+  revokeOtherSessions(@Request() req: AuthenticatedRequest) {
+    return this.authService.revokeOtherUserSessions({
+      userId: req.payload.sub,
+      sessionId: req.payload.sessionId,
+    });
+  }
+
+  // revokes user's active session by session id
+  @ApiRevokeSessionEndpoint()
+  @Delete('sessions/:id')
+  @UseGuards(AuthGuard)
+  @HttpCode(200)
+  revokeSession(
+    @Param() params: SessionIdParamDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.authService.revokeUserSession({
+      userId: req.payload.sub,
+      sessionId: params.id,
+    });
   }
 
   // Verify user's email
