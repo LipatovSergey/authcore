@@ -4,6 +4,7 @@ import { Session } from './session.entity';
 import {
   CreateSessionInput,
   RevokeAllUserSessionsInput,
+  RevokeOtherUserSessionsInput,
   RevokeSessionInput,
   ValidateActiveUserSessionInput,
 } from '../types/sessions';
@@ -74,14 +75,13 @@ export class SessionsService {
   }
 
   async revokeAllByUserIdExceptSessionId(
-    userId: string,
-    sessionId: string,
-    revokedAt: Date,
+    input: RevokeOtherUserSessionsInput,
     manager: EntityManager,
   ) {
+    const { userId, currentSessionId, revokedAt } = input;
     const repo = manager.getRepository(Session);
     const { affected } = await repo.update(
-      { userId, id: Not(sessionId), revokedAt: IsNull() },
+      { userId, id: Not(currentSessionId), revokedAt: IsNull() },
       { revokedAt },
     );
     return affected ?? 0;

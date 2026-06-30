@@ -609,9 +609,11 @@ export class AuthService implements OnModuleInit {
         );
         const revokedSessionsCount =
           await this.sessionService.revokeAllByUserIdExceptSessionId(
-            userId,
-            sessionId,
-            revokedAt,
+            {
+              userId,
+              currentSessionId: sessionId,
+              revokedAt,
+            },
             manager,
           );
 
