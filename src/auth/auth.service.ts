@@ -124,8 +124,10 @@ export class AuthService implements OnModuleInit {
       const unverifiedExpiresAt = this.calculateUnverifiedUserExpiresAt();
       const refreshed =
         await this.usersService.refreshUnverifiedExpiresAtWithManager(
-          user.id,
-          unverifiedExpiresAt,
+          {
+            id: user.id,
+            unverifiedExpiresAt,
+          },
           manager,
         );
 
@@ -220,8 +222,10 @@ export class AuthService implements OnModuleInit {
       if (!user.isEmailVerified) {
         const unverifiedExpiresAt = this.calculateUnverifiedUserExpiresAt();
         await this.usersService.refreshUnverifiedExpiresAtWithManager(
-          user.id,
-          unverifiedExpiresAt,
+          {
+            id: user.id,
+            unverifiedExpiresAt,
+          },
           manager,
         );
       }

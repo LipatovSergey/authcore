@@ -4,6 +4,7 @@ import { EntityManager, LessThan, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import type { CreateUserInput } from './types/create-user.input';
 import type { ResetPasswordInput } from './types/reset-password.input';
+import type { RefreshUnverifiedExpiresAtInput } from './types/refresh-unverified-expires-at.input';
 import { isPostgresErrorLike } from './interfaces/utils/is-postgres-db-error.util';
 
 @Injectable()
@@ -56,10 +57,10 @@ export class UsersService {
   }
 
   async refreshUnverifiedExpiresAtWithManager(
-    id: string,
-    unverifiedExpiresAt: Date,
+    input: RefreshUnverifiedExpiresAtInput,
     manager: EntityManager,
   ): Promise<boolean> {
+    const { id, unverifiedExpiresAt } = input;
     const repo = manager.getRepository(User);
     const { affected } = await repo.update(
       { id, isEmailVerified: false },
