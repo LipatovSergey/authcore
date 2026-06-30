@@ -5,6 +5,7 @@ import { User } from './entities/user.entity';
 import type { CreateUserInput } from './types/create-user.input';
 import type { ResetPasswordInput } from './types/reset-password.input';
 import type { RefreshUnverifiedExpiresAtInput } from './types/refresh-unverified-expires-at.input';
+import type { ConfirmEmailVerificationInput } from './types/confirm-email-verification.input';
 import { isPostgresErrorLike } from './interfaces/utils/is-postgres-db-error.util';
 
 @Injectable()
@@ -78,10 +79,10 @@ export class UsersService {
   }
 
   async confirmEmailVerificationWithManager(
-    id: string,
-    now: Date,
+    input: ConfirmEmailVerificationInput,
     manager: EntityManager,
   ): Promise<void> {
+    const { id, now } = input;
     const repo = manager.getRepository(User);
     await repo.update(id, {
       isEmailVerified: true,

@@ -90,8 +90,10 @@ export class AuthService implements OnModuleInit {
     await this.dataSource.transaction(async (manager) => {
       const now = new Date();
       await this.usersService.confirmEmailVerificationWithManager(
-        user.id,
-        now,
+        {
+          id: user.id,
+          now,
+        },
         manager,
       );
 
