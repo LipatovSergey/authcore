@@ -1,7 +1,10 @@
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { EntityManager, IsNull, Not } from 'typeorm';
 import { Session } from './session.entity';
-import { CreateSessionInput } from '../types/sessions';
+import {
+  CreateSessionInput,
+  ValidateActiveUserSessionInput,
+} from '../types/sessions';
 
 @Injectable()
 export class SessionsService {
@@ -28,10 +31,10 @@ export class SessionsService {
   }
 
   async validateActiveUserSessionOrThrow(
-    sessionId: string,
-    userId: string,
+    input: ValidateActiveUserSessionInput,
     manager: EntityManager,
   ) {
+    const { sessionId, userId } = input;
     const repo = manager.getRepository(Session);
     const activeSession = await repo.findOneBy({
       id: sessionId,

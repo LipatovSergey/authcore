@@ -416,8 +416,10 @@ export class AuthService implements OnModuleInit {
     const sessionId = await this.dataSource.transaction(async (manager) => {
       const activeSession =
         await this.sessionService.validateActiveUserSessionOrThrow(
-          validatedToken.sessionId,
-          user.id,
+          {
+            sessionId: validatedToken.sessionId,
+            userId: user.id,
+          },
           manager,
         );
 
@@ -513,8 +515,10 @@ export class AuthService implements OnModuleInit {
       async (manager) => {
         const validActiveSession =
           await this.sessionService.validateActiveUserSessionOrThrow(
-            sessionId,
-            userId,
+            {
+              sessionId,
+              userId,
+            },
             manager,
           );
         return this.sessionService.findActiveByUserId(
@@ -545,8 +549,10 @@ export class AuthService implements OnModuleInit {
     const revokedRefreshTokensCount = await this.dataSource.transaction(
       async (manager) => {
         await this.sessionService.validateActiveUserSessionOrThrow(
-          sessionId,
-          userId,
+          {
+            sessionId,
+            userId,
+          },
           manager,
         );
 
@@ -579,8 +585,10 @@ export class AuthService implements OnModuleInit {
     const { revokedSessionsCount, revokedRefreshTokensCount } =
       await this.dataSource.transaction(async (manager) => {
         await this.sessionService.validateActiveUserSessionOrThrow(
-          sessionId,
-          userId,
+          {
+            sessionId,
+            userId,
+          },
           manager,
         );
         const revokedSessionsCount =
