@@ -11,7 +11,10 @@ import {
   type SecureHasher,
 } from '../interfaces/secure-hasher.interface';
 import { EntityManager, IsNull, LessThan, Repository } from 'typeorm';
-import { CreateEmailVerificationTokenInput } from '../types/email-verification-tokens';
+import {
+  CreateEmailVerificationTokenInput,
+  MarkEmailVerificationTokenAsUsedInput,
+} from '../types/email-verification-tokens';
 import { JwtTokensService } from './jwt-tokens.service';
 import { EmailVerificationTokenPayload } from '../types/jwt-tokens';
 
@@ -43,10 +46,10 @@ export class EmailVerificationTokensService {
   }
 
   async markTokenAsUsedWithManager(
-    id: string,
-    now: Date,
+    input: MarkEmailVerificationTokenAsUsedInput,
     manager: EntityManager,
   ): Promise<void> {
+    const { id, now } = input;
     const repo = manager.getRepository(EmailVerificationToken);
     const { affected } = await repo.update(id, { usedAt: now });
     if (affected !== 1) {

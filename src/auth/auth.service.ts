@@ -90,14 +90,18 @@ export class AuthService implements OnModuleInit {
     await this.dataSource.transaction(async (manager) => {
       const now = new Date();
       await this.usersService.confirmEmailVerificationWithManager(
-        user.id,
-        now,
+        {
+          id: user.id,
+          now,
+        },
         manager,
       );
 
       await this.emailVerificationTokensService.markTokenAsUsedWithManager(
-        tokenInstance.id,
-        now,
+        {
+          id: tokenInstance.id,
+          now,
+        },
         manager,
       );
     });
@@ -122,8 +126,10 @@ export class AuthService implements OnModuleInit {
       const unverifiedExpiresAt = this.calculateUnverifiedUserExpiresAt();
       const refreshed =
         await this.usersService.refreshUnverifiedExpiresAtWithManager(
-          user.id,
-          unverifiedExpiresAt,
+          {
+            id: user.id,
+            unverifiedExpiresAt,
+          },
           manager,
         );
 
@@ -218,8 +224,10 @@ export class AuthService implements OnModuleInit {
       if (!user.isEmailVerified) {
         const unverifiedExpiresAt = this.calculateUnverifiedUserExpiresAt();
         await this.usersService.refreshUnverifiedExpiresAtWithManager(
-          user.id,
-          unverifiedExpiresAt,
+          {
+            id: user.id,
+            unverifiedExpiresAt,
+          },
           manager,
         );
       }
@@ -388,13 +396,17 @@ export class AuthService implements OnModuleInit {
       await this.dataSource.transaction(async (manager) => {
         const revokedAt = new Date();
         await this.sessionService.revokeAllByUserId(
-          error.userId,
-          revokedAt,
+          {
+            userId: error.userId,
+            revokedAt,
+          },
           manager,
         );
         await this.refreshTokensService.revokeAllByUserId(
-          error.userId,
-          revokedAt,
+          {
+            userId: error.userId,
+            revokedAt,
+          },
           manager,
         );
       });
@@ -416,8 +428,10 @@ export class AuthService implements OnModuleInit {
     const sessionId = await this.dataSource.transaction(async (manager) => {
       const activeSession =
         await this.sessionService.validateActiveUserSessionOrThrow(
-          validatedToken.sessionId,
-          user.id,
+          {
+            sessionId: validatedToken.sessionId,
+            userId: user.id,
+          },
           manager,
         );
 
@@ -434,7 +448,9 @@ export class AuthService implements OnModuleInit {
       );
 
       await this.sessionService.markSessionAsRefreshed(
-        activeSession.id,
+        {
+          sessionId: activeSession.id,
+        },
         manager,
       );
 
@@ -462,11 +478,19 @@ export class AuthService implements OnModuleInit {
     const revokedAt = new Date();
 
     await this.dataSource.transaction(async (manager) => {
-      await this.sessionService.revoke(dbToken.sessionId, revokedAt, manager);
+      await this.sessionService.revoke(
+        {
+          sessionId: dbToken.sessionId,
+          revokedAt,
+        },
+        manager,
+      );
 
       await this.refreshTokensService.revokeAllBySessionId(
-        dbToken.sessionId,
-        revokedAt,
+        {
+          sessionId: dbToken.sessionId,
+          revokedAt,
+        },
         manager,
       );
     });
@@ -486,14 +510,18 @@ export class AuthService implements OnModuleInit {
 
     await this.dataSource.transaction(async (manager) => {
       await this.sessionService.revokeAllByUserId(
-        dbToken.userId,
-        revokedAt,
+        {
+          userId: dbToken.userId,
+          revokedAt,
+        },
         manager,
       );
 
       await this.refreshTokensService.revokeAllByUserId(
-        dbToken.userId,
-        revokedAt,
+        {
+          userId: dbToken.userId,
+          revokedAt,
+        },
         manager,
       );
     });
@@ -513,8 +541,10 @@ export class AuthService implements OnModuleInit {
       async (manager) => {
         const validActiveSession =
           await this.sessionService.validateActiveUserSessionOrThrow(
-            sessionId,
-            userId,
+            {
+              sessionId,
+              userId,
+            },
             manager,
           );
         return this.sessionService.findActiveByUserId(
@@ -545,17 +575,27 @@ export class AuthService implements OnModuleInit {
     const revokedRefreshTokensCount = await this.dataSource.transaction(
       async (manager) => {
         await this.sessionService.validateActiveUserSessionOrThrow(
-          sessionId,
-          userId,
+          {
+            sessionId,
+            userId,
+          },
           manager,
         );
 
-        await this.sessionService.revoke(sessionId, revokedAt, manager);
+        await this.sessionService.revoke(
+          {
+            sessionId,
+            revokedAt,
+          },
+          manager,
+        );
 
         const revokedRefreshTokensCount =
           await this.refreshTokensService.revokeAllBySessionId(
-            sessionId,
-            revokedAt,
+            {
+              sessionId,
+              revokedAt,
+            },
             manager,
           );
 
@@ -579,23 +619,29 @@ export class AuthService implements OnModuleInit {
     const { revokedSessionsCount, revokedRefreshTokensCount } =
       await this.dataSource.transaction(async (manager) => {
         await this.sessionService.validateActiveUserSessionOrThrow(
-          sessionId,
-          userId,
+          {
+            sessionId,
+            userId,
+          },
           manager,
         );
         const revokedSessionsCount =
           await this.sessionService.revokeAllByUserIdExceptSessionId(
-            userId,
-            sessionId,
-            revokedAt,
+            {
+              userId,
+              currentSessionId: sessionId,
+              revokedAt,
+            },
             manager,
           );
 
         const revokedRefreshTokensCount =
           await this.refreshTokensService.revokeAllByUserIdExceptSessionId(
-            userId,
-            sessionId,
-            revokedAt,
+            {
+              userId,
+              currentSessionId: sessionId,
+              revokedAt,
+            },
             manager,
           );
 

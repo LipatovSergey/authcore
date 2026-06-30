@@ -1,7 +1,14 @@
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { EntityManager, IsNull, Not } from 'typeorm';
 import { Session } from './session.entity';
-import { CreateSessionInput } from '../types/sessions';
+import {
+  CreateSessionInput,
+  MarkSessionAsRefreshedInput,
+  RevokeAllUserSessionsInput,
+  RevokeOtherUserSessionsInput,
+  RevokeSessionInput,
+  ValidateActiveUserSessionInput,
+} from '../types/sessions';
 
 @Injectable()
 export class SessionsService {
@@ -28,10 +35,10 @@ export class SessionsService {
   }
 
   async validateActiveUserSessionOrThrow(
-    sessionId: string,
-    userId: string,
+    input: ValidateActiveUserSessionInput,
     manager: EntityManager,
   ) {
+    const { sessionId, userId } = input;
     const repo = manager.getRepository(Session);
     const activeSession = await repo.findOneBy({
       id: sessionId,
@@ -45,7 +52,8 @@ export class SessionsService {
     return activeSession;
   }
 
-  async revoke(sessionId: string, revokedAt: Date, manager: EntityManager) {
+  async revoke(input: RevokeSessionInput, manager: EntityManager) {
+    const { sessionId, revokedAt } = input;
     const repo = manager.getRepository(Session);
     const { affected } = await repo.update(
       { id: sessionId, revokedAt: IsNull() },
@@ -55,10 +63,10 @@ export class SessionsService {
   }
 
   async revokeAllByUserId(
-    userId: string,
-    revokedAt: Date,
+    input: RevokeAllUserSessionsInput,
     manager: EntityManager,
   ) {
+    const { userId, revokedAt } = input;
     const repo = manager.getRepository(Session);
     const { affected } = await repo.update(
       { userId, revokedAt: IsNull() },
@@ -68,20 +76,23 @@ export class SessionsService {
   }
 
   async revokeAllByUserIdExceptSessionId(
-    userId: string,
-    sessionId: string,
-    revokedAt: Date,
+    input: RevokeOtherUserSessionsInput,
     manager: EntityManager,
   ) {
+    const { userId, currentSessionId, revokedAt } = input;
     const repo = manager.getRepository(Session);
     const { affected } = await repo.update(
-      { userId, id: Not(sessionId), revokedAt: IsNull() },
+      { userId, id: Not(currentSessionId), revokedAt: IsNull() },
       { revokedAt },
     );
     return affected ?? 0;
   }
 
-  async markSessionAsRefreshed(sessionId: string, manager: EntityManager) {
+  async markSessionAsRefreshed(
+    input: MarkSessionAsRefreshedInput,
+    manager: EntityManager,
+  ) {
+    const { sessionId } = input;
     const repo = manager.getRepository(Session);
     const { affected } = await repo.update(sessionId, {
       lastRefreshedAt: new Date(),

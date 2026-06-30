@@ -16,6 +16,9 @@ import {
 } from 'typeorm';
 import {
   CreateRefreshTokenInput,
+  RevokeAllUserRefreshTokensInput,
+  RevokeOtherUserRefreshTokensInput,
+  RevokeRefreshTokensBySessionInput,
   RotateRefreshTokenInput,
 } from '../types/refresh-tokens';
 import {
@@ -120,10 +123,10 @@ export class RefreshTokensService {
   }
 
   async revokeAllBySessionId(
-    sessionId: string,
-    revokedAt: Date,
+    input: RevokeRefreshTokensBySessionInput,
     manager: EntityManager,
   ) {
+    const { sessionId, revokedAt } = input;
     const repo = manager.getRepository(RefreshToken);
     const { affected } = await repo.update(
       { sessionId, revokedAt: IsNull() },
@@ -134,14 +137,13 @@ export class RefreshTokensService {
   }
 
   async revokeAllByUserIdExceptSessionId(
-    userId: string,
-    sessionId: string,
-    revokedAt: Date,
+    input: RevokeOtherUserRefreshTokensInput,
     manager: EntityManager,
   ) {
+    const { userId, currentSessionId, revokedAt } = input;
     const repo = manager.getRepository(RefreshToken);
     const { affected } = await repo.update(
-      { userId, sessionId: Not(sessionId), revokedAt: IsNull() },
+      { userId, sessionId: Not(currentSessionId), revokedAt: IsNull() },
       { revokedAt: revokedAt },
     );
 
@@ -182,10 +184,10 @@ export class RefreshTokensService {
   }
 
   async revokeAllByUserId(
-    userId: string,
-    revokedAt: Date,
+    input: RevokeAllUserRefreshTokensInput,
     manager: EntityManager,
   ) {
+    const { userId, revokedAt } = input;
     const repo = manager.getRepository(RefreshToken);
     const { affected } = await repo.update(
       { userId, revokedAt: IsNull() },
