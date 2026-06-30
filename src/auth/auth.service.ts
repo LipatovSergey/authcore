@@ -438,7 +438,9 @@ export class AuthService implements OnModuleInit {
       );
 
       await this.sessionService.markSessionAsRefreshed(
-        activeSession.id,
+        {
+          sessionId: activeSession.id,
+        },
         manager,
       );
 

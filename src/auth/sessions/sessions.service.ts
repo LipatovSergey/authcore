@@ -3,6 +3,7 @@ import { EntityManager, IsNull, Not } from 'typeorm';
 import { Session } from './session.entity';
 import {
   CreateSessionInput,
+  MarkSessionAsRefreshedInput,
   RevokeAllUserSessionsInput,
   RevokeOtherUserSessionsInput,
   RevokeSessionInput,
@@ -87,7 +88,11 @@ export class SessionsService {
     return affected ?? 0;
   }
 
-  async markSessionAsRefreshed(sessionId: string, manager: EntityManager) {
+  async markSessionAsRefreshed(
+    input: MarkSessionAsRefreshedInput,
+    manager: EntityManager,
+  ) {
+    const { sessionId } = input;
     const repo = manager.getRepository(Session);
     const { affected } = await repo.update(sessionId, {
       lastRefreshedAt: new Date(),
