@@ -395,8 +395,10 @@ export class AuthService implements OnModuleInit {
           manager,
         );
         await this.refreshTokensService.revokeAllByUserId(
-          error.userId,
-          revokedAt,
+          {
+            userId: error.userId,
+            revokedAt,
+          },
           manager,
         );
       });
@@ -508,8 +510,10 @@ export class AuthService implements OnModuleInit {
       );
 
       await this.refreshTokensService.revokeAllByUserId(
-        dbToken.userId,
-        revokedAt,
+        {
+          userId: dbToken.userId,
+          revokedAt,
+        },
         manager,
       );
     });

@@ -21,3 +21,8 @@ export interface RevokeOtherUserRefreshTokensInput {
   currentSessionId: string;
   revokedAt: Date;
 }
+
+export interface RevokeAllUserRefreshTokensInput {
+  userId: string;
+  revokedAt: Date;
+}
