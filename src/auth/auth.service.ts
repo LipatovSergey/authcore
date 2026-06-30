@@ -96,8 +96,10 @@ export class AuthService implements OnModuleInit {
       );
 
       await this.emailVerificationTokensService.markTokenAsUsedWithManager(
-        tokenInstance.id,
-        now,
+        {
+          id: tokenInstance.id,
+          now,
+        },
         manager,
       );
     });
