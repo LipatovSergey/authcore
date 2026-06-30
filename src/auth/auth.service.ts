@@ -477,8 +477,10 @@ export class AuthService implements OnModuleInit {
       );
 
       await this.refreshTokensService.revokeAllBySessionId(
-        dbToken.sessionId,
-        revokedAt,
+        {
+          sessionId: dbToken.sessionId,
+          revokedAt,
+        },
         manager,
       );
     });
@@ -578,8 +580,10 @@ export class AuthService implements OnModuleInit {
 
         const revokedRefreshTokensCount =
           await this.refreshTokensService.revokeAllBySessionId(
-            sessionId,
-            revokedAt,
+            {
+              sessionId,
+              revokedAt,
+            },
             manager,
           );
 

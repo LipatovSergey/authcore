@@ -10,3 +10,8 @@ export interface RotateRefreshTokenInput {
   oldTokenId: string;
   newTokenInput: CreateRefreshTokenInput;
 }
+
+export interface RevokeRefreshTokensBySessionInput {
+  sessionId: string;
+  revokedAt: Date;
+}
