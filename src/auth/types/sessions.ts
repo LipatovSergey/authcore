@@ -8,3 +8,8 @@ export interface ValidateActiveUserSessionInput {
   sessionId: string;
   userId: string;
 }
+
+export interface RevokeSessionInput {
+  sessionId: string;
+  revokedAt: Date;
+}

@@ -464,7 +464,13 @@ export class AuthService implements OnModuleInit {
     const revokedAt = new Date();
 
     await this.dataSource.transaction(async (manager) => {
-      await this.sessionService.revoke(dbToken.sessionId, revokedAt, manager);
+      await this.sessionService.revoke(
+        {
+          sessionId: dbToken.sessionId,
+          revokedAt,
+        },
+        manager,
+      );
 
       await this.refreshTokensService.revokeAllBySessionId(
         dbToken.sessionId,
@@ -556,7 +562,13 @@ export class AuthService implements OnModuleInit {
           manager,
         );
 
-        await this.sessionService.revoke(sessionId, revokedAt, manager);
+        await this.sessionService.revoke(
+          {
+            sessionId,
+            revokedAt,
+          },
+          manager,
+        );
 
         const revokedRefreshTokensCount =
           await this.refreshTokensService.revokeAllBySessionId(
