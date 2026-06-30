@@ -3,6 +3,7 @@ import { EntityManager, IsNull, Not } from 'typeorm';
 import { Session } from './session.entity';
 import {
   CreateSessionInput,
+  RevokeAllUserSessionsInput,
   RevokeSessionInput,
   ValidateActiveUserSessionInput,
 } from '../types/sessions';
@@ -60,10 +61,10 @@ export class SessionsService {
   }
 
   async revokeAllByUserId(
-    userId: string,
-    revokedAt: Date,
+    input: RevokeAllUserSessionsInput,
     manager: EntityManager,
   ) {
+    const { userId, revokedAt } = input;
     const repo = manager.getRepository(Session);
     const { affected } = await repo.update(
       { userId, revokedAt: IsNull() },

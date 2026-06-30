@@ -13,3 +13,8 @@ export interface RevokeSessionInput {
   sessionId: string;
   revokedAt: Date;
 }
+
+export interface RevokeAllUserSessionsInput {
+  userId: string;
+  revokedAt: Date;
+}

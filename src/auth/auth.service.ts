@@ -388,8 +388,10 @@ export class AuthService implements OnModuleInit {
       await this.dataSource.transaction(async (manager) => {
         const revokedAt = new Date();
         await this.sessionService.revokeAllByUserId(
-          error.userId,
-          revokedAt,
+          {
+            userId: error.userId,
+            revokedAt,
+          },
           manager,
         );
         await this.refreshTokensService.revokeAllByUserId(
@@ -494,8 +496,10 @@ export class AuthService implements OnModuleInit {
 
     await this.dataSource.transaction(async (manager) => {
       await this.sessionService.revokeAllByUserId(
-        dbToken.userId,
-        revokedAt,
+        {
+          userId: dbToken.userId,
+          revokedAt,
+        },
         manager,
       );
 
