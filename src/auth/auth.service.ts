@@ -625,9 +625,11 @@ export class AuthService implements OnModuleInit {
 
         const revokedRefreshTokensCount =
           await this.refreshTokensService.revokeAllByUserIdExceptSessionId(
-            userId,
-            sessionId,
-            revokedAt,
+            {
+              userId,
+              currentSessionId: sessionId,
+              revokedAt,
+            },
             manager,
           );
 
