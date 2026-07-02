@@ -38,6 +38,7 @@ import { RefreshTokenReuseDetectedError } from './tokens/refresh-token-reuse-det
 import { GetSessionsResponseDto } from './dto/get-sessions.dto';
 import { RevokeSessionResponseDto } from './dto/revoke-session.dto';
 import { RevokeOtherSessionsResponseDto } from './dto/revoke-other-sessions.dto';
+import { userAgentParser } from './sessions/parse-user-agent.util';
 export const VERIFY_EMAIL_OUTCOME = {
   VERIFIED: 'verified',
   ALREADY_VERIFIED: 'already_verified',
@@ -311,24 +312,31 @@ export class AuthService implements OnModuleInit {
     return { message: 'ok' };
   }
 
-  async login(input: LoginRequestDto): Promise<LoginResponseDto> {
-    const user = await this.usersService.findByEmail(input.email);
+  async login(input: {
+    credentials: LoginRequestDto;
+    metadata: {
+      userAgent: string | null;
+      ipAddress: string | null;
+    };
+  }): Promise<LoginResponseDto> {
+    const { credentials, metadata } = input;
+    const user = await this.usersService.findByEmail(credentials.email);
     if (!user) {
       this.logger.warn(
-        `Failed login attempt because user not found: email=${input.email}`,
+        `Failed login attempt because user not found: email=${credentials.email}`,
       );
-      await this.secureHasher.verify(this.dummyHash, input.password);
+      await this.secureHasher.verify(this.dummyHash, credentials.password);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const check = await this.secureHasher.verify(
       user.passwordHash,
-      input.password,
+      credentials.password,
     );
 
     if (!check) {
       this.logger.warn(
-        `Failed login attempt because password mismatch: email=${input.email}`,
+        `Failed login attempt because password mismatch: email=${credentials.email}`,
       );
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -336,7 +344,7 @@ export class AuthService implements OnModuleInit {
     // must be after password check to avoid data leak
     if (!user.isEmailVerified) {
       this.logger.warn(
-        `Failed login attempt because email=${input.email}, is not verified`,
+        `Failed login attempt because email=${credentials.email}, is not verified`,
       );
       throw new UnauthorizedException({
         message: 'Email is not verified',
@@ -352,8 +360,8 @@ export class AuthService implements OnModuleInit {
       const session = await this.sessionService.createSession(
         {
           userId: user.id,
-          ipAddress: null,
-          userAgent: null,
+          ipAddress: metadata.ipAddress,
+          userAgent: metadata.userAgent,
         },
         manager,
       );
@@ -555,13 +563,18 @@ export class AuthService implements OnModuleInit {
     );
 
     return {
-      sessions: activeSessionsEntities.map((sessionEntity) => ({
-        id: sessionEntity.id,
-        user_agent: sessionEntity.userAgent,
-        ip_address: sessionEntity.ipAddress,
-        created_at: sessionEntity.createdAt,
-        last_refreshed_at: sessionEntity.lastRefreshedAt,
-      })),
+      sessions: activeSessionsEntities.map((sessionEntity) => {
+        const parsedUserAgent = userAgentParser(sessionEntity.userAgent);
+        return {
+          id: sessionEntity.id,
+          browser: parsedUserAgent.browser,
+          os: parsedUserAgent.os,
+          device: parsedUserAgent.device,
+          ip_address: sessionEntity.ipAddress,
+          created_at: sessionEntity.createdAt,
+          last_refreshed_at: sessionEntity.lastRefreshedAt,
+        };
+      }),
     };
   }
 

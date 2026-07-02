@@ -20,6 +20,7 @@ import { LogoutRequestDto } from './dto/logout.dto';
 import { LogoutAllRequestDto } from './dto/logoutAll.dto';
 import { AuthGuard } from './auth.guard';
 import type { AuthenticatedRequest } from './types/authenticated-request';
+import type { Request as ExpressRequest } from 'express';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { VerifyEmailQueryDto } from './dto/email-verification.dto';
 import { ConfigService } from '@nestjs/config';
@@ -69,11 +70,20 @@ export class AuthController {
   @SkipThrottle({ authRegister: true, authRefresh: true })
   @Post('login')
   @HttpCode(200)
-  login(@Body() loginRequestDto: LoginRequestDto) {
-    return this.authService.login(loginRequestDto);
+  login(
+    @Body() loginRequestDto: LoginRequestDto,
+    @Request() req: ExpressRequest,
+  ) {
+    const rawUserAgent = req.headers['user-agent'];
+    const userAgent = typeof rawUserAgent === 'string' ? rawUserAgent : null;
+    const ipAddress = req.ip ?? null;
+    return this.authService.login({
+      credentials: loginRequestDto,
+      metadata: { userAgent, ipAddress },
+    });
   }
 
-  // Refresh tokens
+  // Refresh tokenk
   @ApiRefreshEndpoint()
   @Throttle({ authRefresh: {} })
   @SkipThrottle({ authLogin: true, authRegister: true })
