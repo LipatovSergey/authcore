@@ -10,9 +10,20 @@ export class AuthSessionDto {
   @ApiProperty({
     description: 'Raw user agent string',
     example: null,
-    nullable: true,
   })
-  user_agent: string | null;
+  browser: string;
+
+  @ApiProperty({
+    description: 'Raw user agent string',
+    example: null,
+  })
+  os: string;
+
+  @ApiProperty({
+    description: 'Raw user agent string',
+    example: null,
+  })
+  device: string;
 
   @ApiProperty({
     description: 'Session IP address',

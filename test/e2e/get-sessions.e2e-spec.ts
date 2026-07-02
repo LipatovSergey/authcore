@@ -59,11 +59,40 @@ describe('/auth/sessions (GET)', () => {
     expect(response.body.sessions).toHaveLength(1);
     expect(response.body.sessions[0]).toStrictEqual({
       id: expect.any(String),
-      user_agent: null,
-      ip_address: null,
+      browser: expect.any(String),
+      os: expect.any(String),
+      device: expect.any(String),
+      ip_address: expect.any(String),
       created_at: expect.any(String),
       last_refreshed_at: null,
     });
+  });
+
+  it('returns parsed session device information from user agent', async () => {
+    const browserUserAgent =
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+    const loginResponse = await request(httpServer)
+      .post('/auth/login')
+      .set('User-Agent', browserUserAgent)
+      .send(userCredentials)
+      .expect(200);
+    const accessToken = loginResponse.body.access_token;
+    const response = await request(httpServer)
+      .get('/auth/sessions')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    const responseBody = response.body as {
+      sessions: Array<{ browser: string; os: string; device: string }>;
+    };
+
+    expect(
+      responseBody.sessions.some(
+        (session) =>
+          session.browser === 'Chrome' &&
+          session.os === 'Linux' &&
+          session.device === 'Desktop',
+      ),
+    ).toBe(true);
   });
 
   it('does not return sessions belonging to another user', async () => {
