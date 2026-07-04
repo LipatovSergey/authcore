@@ -82,6 +82,9 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
           .positive()
           .required(),
 
+        REDIS_HOST: Joi.string().required(),
+        REDIS_PORT: Joi.number().integer().positive().required(),
+
         ENABLE_DEMO_NOTIFICATIONS_OUTBOX: Joi.boolean().required(),
         PORT: Joi.number().integer().positive().optional(),
         NODE_ENV: Joi.string().optional(),
