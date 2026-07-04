@@ -16,6 +16,19 @@ services:
       retries: 5
       start_period: 10s
 
+  redis:
+    image: redis:7-alpine
+    container_name: authcore-prod-redis
+    restart: unless-stopped
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
   api:
     build:
       context: .
@@ -26,6 +39,8 @@ services:
       - .env.production
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - '3000:3000'
@@ -43,3 +58,4 @@ services:
 
 volumes:
   postgres_prod_data:
+  redis_prod_data:

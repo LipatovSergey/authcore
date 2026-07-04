@@ -38,6 +38,11 @@ export default () => ({
     refreshTtlMs: Number(process.env.THROTTLE_AUTH_REFRESH_TTL_MS),
   },
 
+  redis: {
+    host: process.env.REDIS_HOST,
+    port: Number(process.env.REDIS_PORT),
+  },
+
   frontendOrigin: process.env.FRONTEND_ORIGIN,
   emailVerificationResultUrl: process.env.EMAIL_VERIFICATION_RESULT_URL,
   passwordResetPageUrl: process.env.PASSWORD_RESET_PAGE_URL,
