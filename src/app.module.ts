@@ -8,6 +8,8 @@ import configuration from './config/configuration';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
+import Redis from 'ioredis';
 
 const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
 
@@ -95,28 +97,36 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
 
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => [
-        {
-          name: 'default',
-          ttl: config.getOrThrow<number>('throttler.defaultTtlMs'),
-          limit: config.getOrThrow<number>('throttler.defaultLimit'),
-        },
-        {
-          name: 'authRegister',
-          ttl: config.getOrThrow<number>('throttler.registerTtlMs'),
-          limit: config.getOrThrow<number>('throttler.registerLimit'),
-        },
-        {
-          name: 'authLogin',
-          ttl: config.getOrThrow<number>('throttler.loginTtlMs'),
-          limit: config.getOrThrow<number>('throttler.loginLimit'),
-        },
-        {
-          name: 'authRefresh',
-          ttl: config.getOrThrow<number>('throttler.refreshTtlMs'),
-          limit: config.getOrThrow<number>('throttler.refreshLimit'),
-        },
-      ],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            name: 'default',
+            ttl: config.getOrThrow<number>('throttler.defaultTtlMs'),
+            limit: config.getOrThrow<number>('throttler.defaultLimit'),
+          },
+          {
+            name: 'authRegister',
+            ttl: config.getOrThrow<number>('throttler.registerTtlMs'),
+            limit: config.getOrThrow<number>('throttler.registerLimit'),
+          },
+          {
+            name: 'authLogin',
+            ttl: config.getOrThrow<number>('throttler.loginTtlMs'),
+            limit: config.getOrThrow<number>('throttler.loginLimit'),
+          },
+          {
+            name: 'authRefresh',
+            ttl: config.getOrThrow<number>('throttler.refreshTtlMs'),
+            limit: config.getOrThrow<number>('throttler.refreshLimit'),
+          },
+        ],
+        storage: new ThrottlerStorageRedisService(
+          new Redis({
+            host: config.getOrThrow<string>('redis.host'),
+            port: config.getOrThrow<number>('redis.port'),
+          }),
+        ),
+      }),
     }),
 
     TypeOrmModule.forRootAsync({
