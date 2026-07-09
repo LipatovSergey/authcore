@@ -246,9 +246,7 @@ These values are required because `test/throttling.e2e-spec.ts` currently assert
 ### 3. Set up local infrastructure
 
 ```bash
-docker compose --env-file .env.development -f docker-compose.dev.yml up -d postgres redis --wait
-pnpm migration:run:dev
-pnpm migration:run:test
+pnpm infra:setup
 ```
 
 This starts the local PostgreSQL and Redis containers from `docker-compose.dev.yml`, creates both local PostgreSQL databases on first container initialization, and runs development and test migrations.
@@ -272,9 +270,7 @@ That script is mounted into the Postgres container at `/docker-entrypoint-initdb
 
 ```bash
 docker compose --env-file .env.development -f docker-compose.dev.yml down -v
-docker compose --env-file .env.development -f docker-compose.dev.yml up -d postgres redis --wait
-pnpm migration:run:dev
-pnpm migration:run:test
+pnpm infra:setup
 ```
 
 ### 4. Start the app
@@ -348,16 +344,16 @@ The project has separate Docker Compose files for local development and producti
 ### Local development
 
 ```bash
-docker compose --env-file .env.development -f docker-compose.dev.yml up -d postgres
+docker compose --env-file .env.development -f docker-compose.dev.yml up -d postgres redis
 ```
 
 For normal onboarding, prefer:
 
 ```bash
-pnpm db:setup
+pnpm infra:setup
 ```
 
-This command starts local Postgres, waits for the healthcheck, and runs both development and test migrations.
+This command starts local Postgres and Redis, waits for their healthchecks, and runs both development and test migrations.
 
 ### Production
 
