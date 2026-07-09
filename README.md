@@ -24,6 +24,7 @@ Current MVP features:
 - TypeScript
 - PostgreSQL
 - TypeORM
+- Redis
 - Argon2id
 - JWT
 - Jest + Supertest
@@ -38,6 +39,7 @@ The project follows a modular layered structure:
 - `users` handles user persistence and lookup
 - `notifications` handles demo notification delivery and outbox access
 - `database/migrations` stores database schema changes
+- `infrastructure/redis` owns the Redis client lifecycle for infrastructure-level integrations
 - `config` centralizes environment-based configuration
 
 Conventions used in the project:
@@ -185,6 +187,24 @@ Available when `ENABLE_DEMO_NOTIFICATIONS_OUTBOX=true`:
 
 The outbox is intended for local development and portfolio demos only. Messages are lost when the application restarts. A real email provider can be added later behind the same notifications service contract.
 
+## Redis Usage
+
+Redis is currently used as shared storage for rate limiting counters. AuthCore stores Nest throttler state in Redis so rate limits are shared across backend instances instead of being tied to one Node.js process.
+
+Required Redis environment variables:
+
+- `REDIS_HOST` - Redis host used by the backend
+- `REDIS_PORT` - Redis port used by the backend
+- `REDIS_DB` - logical Redis database number
+
+Local Redis DB convention:
+
+- development uses `REDIS_DB=0`
+- tests use `REDIS_DB=1`
+- production should use a dedicated Redis instance or service and normally uses `REDIS_DB=0`
+
+Redis is not currently used for caching, token deny-lists, queues, session persistence, or other application data. Future Redis use cases should be introduced through separate issues so each use case has its own design, tests, and operational notes.
+
 ## Prerequisites
 
 - Node.js 20+
@@ -223,20 +243,24 @@ THROTTLE_DEFAULT_TTL_MS=1000
 
 These values are required because `test/throttling.e2e-spec.ts` currently asserts behavior against them.
 
-### 3. Set up local databases
+### 3. Set up local infrastructure
 
 ```bash
-pnpm db:setup
+docker compose --env-file .env.development -f docker-compose.dev.yml up -d postgres redis --wait
+pnpm migration:run:dev
+pnpm migration:run:test
 ```
 
-This starts the local PostgreSQL container from `docker-compose.dev.yml`, creates both local databases on first container initialization, and runs development and test migrations.
+This starts the local PostgreSQL and Redis containers from `docker-compose.dev.yml`, creates both local PostgreSQL databases on first container initialization, and runs development and test migrations.
 
 Local database names:
 
 - `authcore_development`
 - `authcore_test`
 
-The development compose file uses the container name `authcore` and stores data in the `postgres_dev_data` Docker volume.
+Local Redis is exposed through `REDIS_HOST` and `REDIS_PORT` from `.env.development`. Redis does not use migrations.
+
+The development compose file stores PostgreSQL data in the `postgres_dev_data` Docker volume and Redis data in the `redis_dev_data` Docker volume.
 
 Database initialization is handled by:
 
@@ -248,7 +272,9 @@ That script is mounted into the Postgres container at `/docker-entrypoint-initdb
 
 ```bash
 docker compose --env-file .env.development -f docker-compose.dev.yml down -v
-pnpm db:setup
+docker compose --env-file .env.development -f docker-compose.dev.yml up -d postgres redis --wait
+pnpm migration:run:dev
+pnpm migration:run:test
 ```
 
 ### 4. Start the app
