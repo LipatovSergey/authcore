@@ -2,6 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { createTestApp } from '../helpers/test-app.helper';
+import Redis from 'ioredis';
+import { createRedisTestClient } from '../helpers/redis-test.helper';
 
 const DEFAULT_THROTTLE_LIMIT = 2;
 const DEFAULT_THROTTLE_TTL_MS = 1000;
@@ -14,14 +16,16 @@ const LOGIN_THROTTLE_TTL_MS = 1000;
 const REFRESH_THROTTLE_LIMIT = 5;
 const REFRESH_THROTTLE_TTL_MS = 1000;
 
-// Throttler storage lives for the whole Nest app instance. The default throttler
-// test uses a very small limit, so it must not share storage with endpoint tests.
+// Redis-backed throttler counters outlive app.close(), so these tests clear the test Redis DB explicitly.
 describe('default throttling', () => {
   let app: INestApplication<App>;
   let httpServer: App;
+  let redisClient: Redis;
   let restoreEnv: () => void;
 
   beforeAll(async () => {
+    redisClient = createRedisTestClient();
+    await redisClient.flushdb();
     ({ app, httpServer, restoreEnv } = await createTestApp({
       THROTTLE_DEFAULT_LIMIT: String(DEFAULT_THROTTLE_LIMIT),
       THROTTLE_DEFAULT_TTL_MS: String(DEFAULT_THROTTLE_TTL_MS),
@@ -31,6 +35,12 @@ describe('default throttling', () => {
   afterAll(async () => {
     restoreEnv();
     await app.close();
+    await redisClient.flushdb();
+    await redisClient.quit();
+  });
+
+  beforeEach(async () => {
+    await redisClient.flushdb();
   });
 
   it('returns 429 when global throttle limit is exceeded', async () => {
@@ -50,9 +60,12 @@ describe('default throttling', () => {
 describe('auth endpoint throttling', () => {
   let app: INestApplication<App>;
   let httpServer: App;
+  let redisClient: Redis;
   let restoreEnv: () => void;
 
   beforeAll(async () => {
+    redisClient = createRedisTestClient();
+    await redisClient.flushdb();
     ({ app, httpServer, restoreEnv } = await createTestApp({
       THROTTLE_DEFAULT_LIMIT: String(AUTH_ENDPOINT_DEFAULT_THROTTLE_LIMIT),
       THROTTLE_DEFAULT_TTL_MS: String(AUTH_ENDPOINT_DEFAULT_THROTTLE_TTL_MS),
@@ -68,6 +81,12 @@ describe('auth endpoint throttling', () => {
   afterAll(async () => {
     restoreEnv();
     await app.close();
+    await redisClient.flushdb();
+    await redisClient.quit();
+  });
+
+  beforeEach(async () => {
+    await redisClient.flushdb();
   });
 
   it('returns 429 when register throttle limit is exceeded', async () => {

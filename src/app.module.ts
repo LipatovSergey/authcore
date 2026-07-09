@@ -9,7 +9,8 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
-import Redis from 'ioredis';
+import { RedisModule } from './infrastructure/redis/redis.module';
+import { RedisService } from './infrastructure/redis/redis.service';
 
 const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
 
@@ -86,6 +87,7 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
 
         REDIS_HOST: Joi.string().required(),
         REDIS_PORT: Joi.number().integer().positive().required(),
+        REDIS_DB: Joi.number().integer().min(0).required(),
 
         ENABLE_DEMO_NOTIFICATIONS_OUTBOX: Joi.boolean().required(),
         PORT: Joi.number().integer().positive().optional(),
@@ -96,8 +98,9 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
     }),
 
     ThrottlerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
+      imports: [RedisModule],
+      inject: [ConfigService, RedisService],
+      useFactory: (config: ConfigService, redisService: RedisService) => ({
         throttlers: [
           {
             name: 'default',
@@ -120,12 +123,7 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
             limit: config.getOrThrow<number>('throttler.refreshLimit'),
           },
         ],
-        storage: new ThrottlerStorageRedisService(
-          new Redis({
-            host: config.getOrThrow<string>('redis.host'),
-            port: config.getOrThrow<number>('redis.port'),
-          }),
-        ),
+        storage: new ThrottlerStorageRedisService(redisService.getClient()),
       }),
     }),
 

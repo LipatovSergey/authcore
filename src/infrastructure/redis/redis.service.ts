@@ -8,8 +8,17 @@ export class RedisService implements OnModuleDestroy {
 
   constructor(private readonly config: ConfigService) {
     this.client = new Redis({
-      host: config.getOrThrow('redis.host'),
-      port: config.getOrThrow('redis.port'),
+      host: config.getOrThrow<string>('redis.host'),
+      port: config.getOrThrow<number>('redis.port'),
+      db: config.getOrThrow<number>('redis.db'),
     });
+  }
+
+  getClient(): Redis {
+    return this.client;
+  }
+
+  async onModuleDestroy() {
+    await this.client.quit();
   }
 }
