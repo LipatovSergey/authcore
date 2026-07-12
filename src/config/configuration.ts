@@ -60,4 +60,6 @@ export default () => ({
     process.env.PASSWORD_RESET_TOKEN_RETENTION_MS,
   ),
   refreshTokenRetentionMs: Number(process.env.REFRESH_TOKEN_RETENTION_MS),
+
+  refreshCookieSecure: process.env.REFRESH_COOKIE_SECURE === 'true',
 });

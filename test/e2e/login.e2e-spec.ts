@@ -67,6 +67,36 @@ describe('/auth/login (POST)', () => {
     expect(session.lastRefreshedAt).toBeNull();
   });
 
+  it('should set refresh token cookie on successful login', async () => {
+    const res = await request(httpServer).post('/auth/login').send({
+      email: 'tester@gmail.com',
+      password: 'some spaced text',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const setCookieHeader: unknown = res.headers['set-cookie'];
+    expect(setCookieHeader).toBeDefined();
+    const cookies = Array.isArray(setCookieHeader)
+      ? setCookieHeader
+      : [setCookieHeader];
+    const refreshCookie = cookies.find(
+      (cookie): cookie is string =>
+        typeof cookie === 'string' && cookie.startsWith('refresh_token='),
+    );
+    if (!refreshCookie) {
+      throw new Error('Refresh token cookie was not set');
+    }
+    const [, ...attributes] = refreshCookie
+      .split(';')
+      .map((part) => part.trim());
+    const attributeSet = new Set(attributes);
+    expect(attributeSet).toContain('HttpOnly');
+    expect(attributeSet).toContain('Path=/auth');
+    expect(attributeSet).toContain('SameSite=Lax');
+    expect(attributeSet).toContain('Max-Age=604800');
+    expect(attributeSet).not.toContain('Secure');
+  });
+
   it('returns 401 when user does not exist', async () => {
     const res = await request(httpServer).post('/auth/login').send({
       email: 'no-tester@gmail.com',

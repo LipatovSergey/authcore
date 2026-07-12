@@ -92,6 +92,8 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
         ENABLE_DEMO_NOTIFICATIONS_OUTBOX: Joi.boolean().required(),
         PORT: Joi.number().integer().positive().optional(),
         NODE_ENV: Joi.string().optional(),
+
+        REFRESH_COOKIE_SECURE: Joi.boolean().required(),
       }),
 
       load: [configuration],

@@ -20,11 +20,10 @@ import { LogoutRequestDto } from './dto/logout.dto';
 import { LogoutAllRequestDto } from './dto/logoutAll.dto';
 import { AuthGuard } from './auth.guard';
 import type { AuthenticatedRequest } from './types/authenticated-request';
-import type { Request as ExpressRequest } from 'express';
+import type { Request as ExpressRequest, Response } from 'express';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { VerifyEmailQueryDto } from './dto/email-verification.dto';
 import { ConfigService } from '@nestjs/config';
-import type { Response } from 'express';
 import { EmailVerificationResendRequestDto } from './dto/email-verification-resend.dto';
 import {
   ApiAuthController,
@@ -45,6 +44,7 @@ import {
 import { ForgotPasswordRequestDto } from './dto/forgot-password.dto';
 import { ResetPasswordRequestDto } from './dto/reset-password.dto';
 import { SessionIdParamDto } from './dto/revoke-session.dto';
+import ms, { type StringValue } from 'ms';
 
 @ApiAuthController()
 @Controller('auth')
@@ -70,20 +70,34 @@ export class AuthController {
   @SkipThrottle({ authRegister: true, authRefresh: true })
   @Post('login')
   @HttpCode(200)
-  login(
+  async login(
     @Body() loginRequestDto: LoginRequestDto,
     @Request() req: ExpressRequest,
+    @Res({ passthrough: true }) response: Response,
   ) {
     const rawUserAgent = req.headers['user-agent'];
     const userAgent = typeof rawUserAgent === 'string' ? rawUserAgent : null;
     const ipAddress = req.ip ?? null;
-    return this.authService.login({
+    const tokens = await this.authService.login({
       credentials: loginRequestDto,
       metadata: { userAgent, ipAddress },
     });
+    const refreshExpiresIn = this.config.getOrThrow<string>(
+      'jwt.refreshExpiresIn',
+    );
+    const secure = this.config.getOrThrow<boolean>('refreshCookieSecure');
+    const maxAge = ms(refreshExpiresIn as StringValue);
+    response.cookie('refresh_token', tokens.refresh_token, {
+      httpOnly: true,
+      secure,
+      sameSite: 'lax',
+      path: '/auth',
+      maxAge,
+    });
+    return tokens;
   }
 
-  // Refresh tokenk
+  // Refresh token
   @ApiRefreshEndpoint()
   @Throttle({ authRefresh: {} })
   @SkipThrottle({ authLogin: true, authRegister: true })
