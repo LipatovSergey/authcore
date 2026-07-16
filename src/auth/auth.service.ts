@@ -14,7 +14,7 @@ import { JwtTokensService } from './tokens/jwt-tokens.service';
 import { RefreshTokensService } from './tokens/refresh-tokens.service';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
 import { LoginRequestDto, LoginResponseDto } from './dto/login.dto';
-import { RefreshRequestDto, RefreshResponseDto } from './dto/refresh.dto';
+import { RefreshResponseDto } from './dto/refresh.dto';
 import { LogoutRequestDto, LogoutResponseDto } from './dto/logout.dto';
 import { LogoutAllRequestDto, LogoutAllResponseDto } from './dto/logoutAll.dto';
 import { GetProfileResponseDto } from './dto/get-profile.dto';
@@ -390,12 +390,12 @@ export class AuthService implements OnModuleInit {
     };
   }
 
-  async refresh(input: RefreshRequestDto): Promise<RefreshResponseDto> {
+  async refresh(refreshToken: string): Promise<RefreshResponseDto> {
     let validatedToken: RefreshToken;
     try {
       validatedToken =
         await this.refreshTokensService.validateActiveForRotationOrThrow(
-          input.refresh_token,
+          refreshToken,
         );
     } catch (error) {
       if (!(error instanceof RefreshTokenReuseDetectedError)) {

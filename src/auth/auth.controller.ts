@@ -11,6 +11,7 @@ import {
   Res,
   Param,
   Delete,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
@@ -103,8 +104,43 @@ export class AuthController {
   @SkipThrottle({ authLogin: true, authRegister: true })
   @Post('refresh')
   @HttpCode(200)
-  refresh(@Body() refreshRequestDto: RefreshRequestDto) {
-    return this.authService.refresh(refreshRequestDto);
+  async refresh(
+    @Body() refreshRequestDto: RefreshRequestDto,
+    @Request() req: ExpressRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    let refreshToken: string | undefined = undefined;
+    const cookieRefreshToken: unknown = req.cookies.refresh_token;
+    if (cookieRefreshToken !== undefined) {
+      if (
+        typeof cookieRefreshToken === 'string' &&
+        cookieRefreshToken.length !== 0
+      ) {
+        refreshToken = cookieRefreshToken;
+      } else {
+        throw new UnauthorizedException('Invalid refresh credentials');
+      }
+    } else {
+      refreshToken = refreshRequestDto.refresh_token;
+    }
+
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh credentials are required');
+    }
+    const tokens = await this.authService.refresh(refreshToken);
+    const refreshExpiresIn = this.config.getOrThrow<string>(
+      'jwt.refreshExpiresIn',
+    );
+    const secure = this.config.getOrThrow<boolean>('refreshCookieSecure');
+    const maxAge = ms(refreshExpiresIn as StringValue);
+    response.cookie('refresh_token', tokens.refresh_token, {
+      httpOnly: true,
+      secure,
+      sameSite: 'lax',
+      path: '/auth',
+      maxAge,
+    });
+    return tokens;
   }
 
   // Logout current session

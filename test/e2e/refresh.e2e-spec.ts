@@ -18,6 +18,7 @@ describe('/auth/refresh (POST)', () => {
   let httpServer: App;
   let notificationsServiceMock: NotificationsServiceMock;
   let refreshToken: string;
+  let agent: ReturnType<typeof request.agent>;
   let refreshTokensService: RefreshTokensService;
   let sessionsRepository: Repository<Session>;
   let userRepository: Repository<User>;
@@ -51,7 +52,8 @@ describe('/auth/refresh (POST)', () => {
     const url = getLastEmailVerificationUrl(notificationsServiceMock);
     await request(httpServer).get(`${url.pathname}${url.search}`);
 
-    const loginResponse = await request(httpServer).post('/auth/login').send({
+    agent = request.agent(httpServer);
+    const loginResponse = await agent.post('/auth/login').send({
       email: 'tester@gmail.com',
       password: 'some spaced text',
     });
@@ -59,184 +61,239 @@ describe('/auth/refresh (POST)', () => {
     refreshToken = loginResponse.body.refresh_token;
   });
 
-  it('returns 200 if credentials are valid', async () => {
-    const res = await request(httpServer)
-      .post('/auth/refresh')
-      .send({ refresh_token: refreshToken });
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toStrictEqual({
-      access_token: expect.any(String),
-      refresh_token: expect.any(String),
-    });
-  });
-
-  it('returns 200 when using the newly issued refresh token after rotation', async () => {
-    const response = await request(httpServer).post('/auth/refresh').send({
-      refresh_token: refreshToken,
-    });
-    const newRefreshToken = response.body.refresh_token;
-    const res = await request(httpServer).post('/auth/refresh').send({
-      refresh_token: newRefreshToken,
-    });
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toStrictEqual({
-      access_token: expect.any(String),
-      refresh_token: expect.any(String),
-    });
-  });
-
-  it('returns 401 if invalid token was passed', async () => {
-    const res = await request(httpServer).post('/auth/refresh').send({
-      refresh_token: 'invalid token',
-    });
-    expect(res.statusCode).toBe(401);
-    expect(res.body.message).toBe('Invalid refresh token');
-  });
-
-  it('returns 401 and revokes all user sessions and tokens on refresh token reuse', async () => {
-    await request(httpServer)
-      .post('/auth/login')
-      .send(userCredentials)
-      .expect(200);
-
-    await request(httpServer)
-      .post('/auth/refresh')
-      .send({
-        refresh_token: refreshToken,
-      })
-      .expect(200);
-
-    const res = await request(httpServer).post('/auth/refresh').send({
-      refresh_token: refreshToken,
-    });
-    expect(res.statusCode).toBe(401);
-    expect(res.body.message).toBe('Invalid refresh token');
-
-    const userEntity = await userRepository.findOneByOrFail({
-      email: userCredentials.email,
-    });
-    const userSessions = await sessionsRepository.find({
-      where: { userId: userEntity.id },
-    });
-    expect(userSessions.length).toBeGreaterThan(0);
-    expect(userSessions.every((session) => session.revokedAt !== null)).toBe(
-      true,
-    );
-    const userRefreshTokens = await refreshTokenRepository.find({
-      where: { userId: userEntity.id },
-    });
-    expect(userRefreshTokens.length).toBeGreaterThan(0);
-    expect(userRefreshTokens.every((token) => token.revokedAt !== null)).toBe(
-      true,
-    );
-  });
-
-  it('does not revoke another user session and refresh token when reuse is detected', async () => {
-    const otherUserCredentials = {
-      email: 'tester2@gmail.com',
-      password: 'some spaced text',
-    };
-    await request(httpServer)
-      .post('/auth/register')
-      .send(otherUserCredentials)
-      .expect(201);
-    const url = getLastEmailVerificationUrl(notificationsServiceMock);
-    await request(httpServer).get(`${url.pathname}${url.search}`);
-    await request(httpServer)
-      .post('/auth/login')
-      .send(otherUserCredentials)
-      .expect(200);
-
-    const otherUser = await userRepository.findOneByOrFail({
-      email: otherUserCredentials.email,
-    });
-    const otherSession = await sessionsRepository.findOneByOrFail({
-      userId: otherUser.id,
-      revokedAt: IsNull(),
-    });
-    const otherRefreshToken = await refreshTokenRepository.findOneByOrFail({
-      userId: otherUser.id,
-      sessionId: otherSession.id,
-      revokedAt: IsNull(),
-    });
-
-    await request(httpServer)
-      .post('/auth/refresh')
-      .send({ refresh_token: refreshToken })
-      .expect(200);
-    await request(httpServer)
-      .post('/auth/refresh')
-      .send({ refresh_token: refreshToken })
-      .expect(401);
-
-    const otherSessionAfterReuse = await sessionsRepository.findOneByOrFail({
-      id: otherSession.id,
-    });
-    expect(otherSessionAfterReuse.revokedAt).toBeNull();
-    const otherRefreshTokenAfterReuse =
-      await refreshTokenRepository.findOneByOrFail({
-        id: otherRefreshToken.id,
+  describe('body transport', () => {
+    it('returns 200 if credentials are valid', async () => {
+      const res = await request(httpServer)
+        .post('/auth/refresh')
+        .send({ refresh_token: refreshToken });
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toStrictEqual({
+        access_token: expect.any(String),
+        refresh_token: expect.any(String),
       });
-    expect(otherRefreshTokenAfterReuse.revokedAt).toBeNull();
+    });
+
+    it('returns 200 when using the newly issued refresh token after rotation', async () => {
+      const response = await request(httpServer).post('/auth/refresh').send({
+        refresh_token: refreshToken,
+      });
+      const newRefreshToken = response.body.refresh_token;
+      const res = await request(httpServer).post('/auth/refresh').send({
+        refresh_token: newRefreshToken,
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toStrictEqual({
+        access_token: expect.any(String),
+        refresh_token: expect.any(String),
+      });
+    });
+
+    it('returns 401 if invalid token was passed', async () => {
+      const res = await request(httpServer).post('/auth/refresh').send({
+        refresh_token: 'invalid token',
+      });
+      expect(res.statusCode).toBe(401);
+      expect(res.body.message).toBe('Invalid refresh token');
+    });
   });
 
-  it('returns 401 when revoked token reused after logout', async () => {
-    await request(httpServer)
-      .post('/auth/logout')
-      .send({ refresh_token: refreshToken })
-      .expect(200);
+  describe('cookie transport', () => {
+    it('returns 200 when refresh token is sent only in cookie', async () => {
+      const res = await agent.post('/auth/refresh');
 
-    const res = await request(httpServer).post('/auth/refresh').send({
-      refresh_token: refreshToken,
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toStrictEqual({
+        access_token: expect.any(String),
+        refresh_token: expect.any(String),
+      });
     });
-    expect(res.statusCode).toBe(401);
-    expect(res.body.message).toBe('Invalid refresh token');
-  });
 
-  it('keeps the same session and updates last refreshed time after successful refresh', async () => {
-    const initialRefreshToken =
-      await refreshTokensService.validateActiveForRotationOrThrow(refreshToken);
-    const initialSession = await sessionsRepository.findOneBy({
-      id: initialRefreshToken.sessionId,
-    });
-    expect(initialSession).not.toBeNull();
-    expect(initialSession!.lastRefreshedAt).toBeNull();
-    const res = await request(httpServer)
-      .post('/auth/refresh')
-      .send({ refresh_token: refreshToken });
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toStrictEqual({
-      access_token: expect.any(String),
-      refresh_token: expect.any(String),
-    });
-    const rotatedRawRefreshToken = res.body.refresh_token;
-    const rotatedRefreshToken =
-      await refreshTokensService.validateActiveForRotationOrThrow(
-        rotatedRawRefreshToken,
+    it('replaces the cookie after refresh token rotation', async () => {
+      const firstRefresh = await agent.post('/auth/refresh').expect(200);
+      const secondRefresh = await agent.post('/auth/refresh').expect(200);
+
+      expect(firstRefresh.body.refresh_token).toEqual(expect.any(String));
+      expect(secondRefresh.body.refresh_token).toEqual(expect.any(String));
+      expect(secondRefresh.body.refresh_token).not.toBe(
+        firstRefresh.body.refresh_token,
       );
-    const refreshedSession = await sessionsRepository.findOneBy({
-      id: rotatedRefreshToken.sessionId,
     });
-    expect(initialRefreshToken.sessionId).toBe(rotatedRefreshToken.sessionId);
-    expect(refreshedSession).not.toBeNull();
-    expect(refreshedSession!.lastRefreshedAt).not.toBeNull();
+
+    it('prefers cookie when body also contains a refresh token', async () => {
+      const res = await agent
+        .post('/auth/refresh')
+        .send({ refresh_token: 'invalid token' });
+
+      expect(res.statusCode).toBe(200);
+    });
+
+    it('returns 401 when refresh credentials are missing', async () => {
+      const res = await request(httpServer).post('/auth/refresh');
+
+      expect(res.statusCode).toBe(401);
+      expect(res.body.message).toBe('Refresh credentials are required');
+    });
+
+    it('returns 401 when refresh cookie is empty', async () => {
+      const res = await request(httpServer)
+        .post('/auth/refresh')
+        .set('Cookie', 'refresh_token=');
+
+      expect(res.statusCode).toBe(401);
+      expect(res.body.message).toBe('Invalid refresh credentials');
+    });
   });
 
-  it('returns 401 when session is revoked', async () => {
-    const validatedToken =
-      await refreshTokensService.validateActiveForRotationOrThrow(refreshToken);
-    const activeSession = await sessionsRepository.findOneBy({
-      id: validatedToken.sessionId,
+  describe('rotation and session behavior', () => {
+    it('returns 401 and revokes all user sessions and tokens on refresh token reuse', async () => {
+      await request(httpServer)
+        .post('/auth/login')
+        .send(userCredentials)
+        .expect(200);
+
+      await request(httpServer)
+        .post('/auth/refresh')
+        .send({
+          refresh_token: refreshToken,
+        })
+        .expect(200);
+
+      const res = await request(httpServer).post('/auth/refresh').send({
+        refresh_token: refreshToken,
+      });
+      expect(res.statusCode).toBe(401);
+      expect(res.body.message).toBe('Invalid refresh token');
+
+      const userEntity = await userRepository.findOneByOrFail({
+        email: userCredentials.email,
+      });
+      const userSessions = await sessionsRepository.find({
+        where: { userId: userEntity.id },
+      });
+      expect(userSessions.length).toBeGreaterThan(0);
+      expect(userSessions.every((session) => session.revokedAt !== null)).toBe(
+        true,
+      );
+      const userRefreshTokens = await refreshTokenRepository.find({
+        where: { userId: userEntity.id },
+      });
+      expect(userRefreshTokens.length).toBeGreaterThan(0);
+      expect(userRefreshTokens.every((token) => token.revokedAt !== null)).toBe(
+        true,
+      );
     });
-    expect(activeSession).not.toBeNull();
-    await sessionsRepository.update(
-      { id: activeSession!.id },
-      { revokedAt: new Date() },
-    );
-    const res = await request(httpServer)
-      .post('/auth/refresh')
-      .send({ refresh_token: refreshToken });
-    expect(res.statusCode).toBe(401);
-    expect(res.body.message).toBe('Invalid refresh token');
+
+    it('does not revoke another user session and refresh token when reuse is detected', async () => {
+      const otherUserCredentials = {
+        email: 'tester2@gmail.com',
+        password: 'some spaced text',
+      };
+      await request(httpServer)
+        .post('/auth/register')
+        .send(otherUserCredentials)
+        .expect(201);
+      const url = getLastEmailVerificationUrl(notificationsServiceMock);
+      await request(httpServer).get(`${url.pathname}${url.search}`);
+      await request(httpServer)
+        .post('/auth/login')
+        .send(otherUserCredentials)
+        .expect(200);
+
+      const otherUser = await userRepository.findOneByOrFail({
+        email: otherUserCredentials.email,
+      });
+      const otherSession = await sessionsRepository.findOneByOrFail({
+        userId: otherUser.id,
+        revokedAt: IsNull(),
+      });
+      const otherRefreshToken = await refreshTokenRepository.findOneByOrFail({
+        userId: otherUser.id,
+        sessionId: otherSession.id,
+        revokedAt: IsNull(),
+      });
+
+      await request(httpServer)
+        .post('/auth/refresh')
+        .send({ refresh_token: refreshToken })
+        .expect(200);
+      await request(httpServer)
+        .post('/auth/refresh')
+        .send({ refresh_token: refreshToken })
+        .expect(401);
+
+      const otherSessionAfterReuse = await sessionsRepository.findOneByOrFail({
+        id: otherSession.id,
+      });
+      expect(otherSessionAfterReuse.revokedAt).toBeNull();
+      const otherRefreshTokenAfterReuse =
+        await refreshTokenRepository.findOneByOrFail({
+          id: otherRefreshToken.id,
+        });
+      expect(otherRefreshTokenAfterReuse.revokedAt).toBeNull();
+    });
+
+    it('returns 401 when revoked token reused after logout', async () => {
+      await request(httpServer)
+        .post('/auth/logout')
+        .send({ refresh_token: refreshToken })
+        .expect(200);
+
+      const res = await request(httpServer).post('/auth/refresh').send({
+        refresh_token: refreshToken,
+      });
+      expect(res.statusCode).toBe(401);
+      expect(res.body.message).toBe('Invalid refresh token');
+    });
+
+    it('keeps the same session and updates last refreshed time after successful refresh', async () => {
+      const initialRefreshToken =
+        await refreshTokensService.validateActiveForRotationOrThrow(
+          refreshToken,
+        );
+      const initialSession = await sessionsRepository.findOneBy({
+        id: initialRefreshToken.sessionId,
+      });
+      expect(initialSession).not.toBeNull();
+      expect(initialSession!.lastRefreshedAt).toBeNull();
+      const res = await request(httpServer)
+        .post('/auth/refresh')
+        .send({ refresh_token: refreshToken });
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toStrictEqual({
+        access_token: expect.any(String),
+        refresh_token: expect.any(String),
+      });
+      const rotatedRawRefreshToken = res.body.refresh_token;
+      const rotatedRefreshToken =
+        await refreshTokensService.validateActiveForRotationOrThrow(
+          rotatedRawRefreshToken,
+        );
+      const refreshedSession = await sessionsRepository.findOneBy({
+        id: rotatedRefreshToken.sessionId,
+      });
+      expect(initialRefreshToken.sessionId).toBe(rotatedRefreshToken.sessionId);
+      expect(refreshedSession).not.toBeNull();
+      expect(refreshedSession!.lastRefreshedAt).not.toBeNull();
+    });
+
+    it('returns 401 when session is revoked', async () => {
+      const validatedToken =
+        await refreshTokensService.validateActiveForRotationOrThrow(
+          refreshToken,
+        );
+      const activeSession = await sessionsRepository.findOneBy({
+        id: validatedToken.sessionId,
+      });
+      expect(activeSession).not.toBeNull();
+      await sessionsRepository.update(
+        { id: activeSession!.id },
+        { revokedAt: new Date() },
+      );
+      const res = await request(httpServer)
+        .post('/auth/refresh')
+        .send({ refresh_token: refreshToken });
+      expect(res.statusCode).toBe(401);
+      expect(res.body.message).toBe('Invalid refresh token');
+    });
   });
 });
