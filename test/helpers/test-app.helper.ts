@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { NotificationsService } from '../../src/notifications/notifications.service';
 import type { App } from 'supertest/types';
 import { createNotificationsServiceMock } from '../mocks/notifications-service.mock';
+import cookieParser from 'cookie-parser';
 
 export async function createTestApp(
   envOverrides?: Record<string, string | undefined>,
@@ -40,6 +41,9 @@ export async function createTestApp(
     .compile();
 
   const app: INestApplication<App> = moduleFixture.createNestApplication();
+
+  app.use(cookieParser());
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
