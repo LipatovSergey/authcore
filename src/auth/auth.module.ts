@@ -21,6 +21,7 @@ import { PasswordResetTokensCleanupService } from './cleanup/password-reset-toke
 import { RefreshTokensCleanupService } from './cleanup/refresh-tokens-cleanup.service';
 import { Session } from './sessions/session.entity';
 import { SessionsService } from './sessions/sessions.service';
+import { RefreshCookieService } from './cookies/refresh-cookie.service';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { SessionsService } from './sessions/sessions.service';
     PasswordResetTokensService,
     UnverifiedUsersCleanupService,
     SessionsService,
+    RefreshCookieService,
     { provide: SECURE_HASHER, useClass: Argon2PasswordHasher },
   ],
 })

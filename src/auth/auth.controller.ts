@@ -21,7 +21,10 @@ import { LogoutRequestDto } from './dto/logout.dto';
 import { LogoutAllRequestDto } from './dto/logoutAll.dto';
 import { AuthGuard } from './auth.guard';
 import type { AuthenticatedRequest } from './types/authenticated-request';
-import type { Request as ExpressRequest, Response } from 'express';
+import type {
+  Request as ExpressRequest,
+  Response as ExpressResponse,
+} from 'express';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { VerifyEmailQueryDto } from './dto/email-verification.dto';
 import { ConfigService } from '@nestjs/config';
@@ -45,7 +48,7 @@ import {
 import { ForgotPasswordRequestDto } from './dto/forgot-password.dto';
 import { ResetPasswordRequestDto } from './dto/reset-password.dto';
 import { SessionIdParamDto } from './dto/revoke-session.dto';
-import ms, { type StringValue } from 'ms';
+import { RefreshCookieService } from './cookies/refresh-cookie.service';
 
 @ApiAuthController()
 @Controller('auth')
@@ -53,6 +56,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly config: ConfigService,
+    private readonly refreshCookieService: RefreshCookieService,
   ) {}
 
   @ApiRegisterEndpoint()
@@ -73,28 +77,17 @@ export class AuthController {
   @HttpCode(200)
   async login(
     @Body() loginRequestDto: LoginRequestDto,
-    @Request() req: ExpressRequest,
-    @Res({ passthrough: true }) response: Response,
+    @Request() request: ExpressRequest,
+    @Res({ passthrough: true }) response: ExpressResponse,
   ) {
-    const rawUserAgent = req.headers['user-agent'];
+    const rawUserAgent = request.headers['user-agent'];
     const userAgent = typeof rawUserAgent === 'string' ? rawUserAgent : null;
-    const ipAddress = req.ip ?? null;
+    const ipAddress = request.ip ?? null;
     const tokens = await this.authService.login({
       credentials: loginRequestDto,
       metadata: { userAgent, ipAddress },
     });
-    const refreshExpiresIn = this.config.getOrThrow<string>(
-      'jwt.refreshExpiresIn',
-    );
-    const secure = this.config.getOrThrow<boolean>('refreshCookieSecure');
-    const maxAge = ms(refreshExpiresIn as StringValue);
-    response.cookie('refresh_token', tokens.refresh_token, {
-      httpOnly: true,
-      secure,
-      sameSite: 'lax',
-      path: '/auth',
-      maxAge,
-    });
+    this.refreshCookieService.set(response, tokens.refresh_token);
     return tokens;
   }
 
@@ -106,40 +99,18 @@ export class AuthController {
   @HttpCode(200)
   async refresh(
     @Body() refreshRequestDto: RefreshRequestDto,
-    @Request() req: ExpressRequest,
-    @Res({ passthrough: true }) response: Response,
+    @Request() request: ExpressRequest,
+    @Res({ passthrough: true }) response: ExpressResponse,
   ) {
-    let refreshToken: string | undefined = undefined;
-    const cookieRefreshToken: unknown = req.cookies.refresh_token;
-    if (cookieRefreshToken !== undefined) {
-      if (
-        typeof cookieRefreshToken === 'string' &&
-        cookieRefreshToken.length !== 0
-      ) {
-        refreshToken = cookieRefreshToken;
-      } else {
-        throw new UnauthorizedException('Invalid refresh credentials');
-      }
-    } else {
-      refreshToken = refreshRequestDto.refresh_token;
-    }
+    const cookieRefreshToken = this.refreshCookieService.getToken(request);
+    const refreshToken = cookieRefreshToken ?? refreshRequestDto.refresh_token;
 
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh credentials are required');
     }
+
     const tokens = await this.authService.refresh(refreshToken);
-    const refreshExpiresIn = this.config.getOrThrow<string>(
-      'jwt.refreshExpiresIn',
-    );
-    const secure = this.config.getOrThrow<boolean>('refreshCookieSecure');
-    const maxAge = ms(refreshExpiresIn as StringValue);
-    response.cookie('refresh_token', tokens.refresh_token, {
-      httpOnly: true,
-      secure,
-      sameSite: 'lax',
-      path: '/auth',
-      maxAge,
-    });
+    this.refreshCookieService.set(response, tokens.refresh_token);
     return tokens;
   }
 
@@ -147,16 +118,53 @@ export class AuthController {
   @ApiLogoutEndpoint()
   @Post('logout')
   @HttpCode(200)
-  logout(@Body() logoutRequestDto: LogoutRequestDto) {
-    return this.authService.logout(logoutRequestDto);
+  async logout(
+    @Body() logoutRequestDto: LogoutRequestDto,
+    @Request() request: ExpressRequest,
+    @Res({ passthrough: true }) response: ExpressResponse,
+  ) {
+    try {
+      const cookieRefreshToken = this.refreshCookieService.getToken(request);
+      const refreshToken = cookieRefreshToken ?? logoutRequestDto.refresh_token;
+      if (!refreshToken) {
+        throw new UnauthorizedException('Refresh credentials are required');
+      }
+      const result = await this.authService.logout(refreshToken);
+      this.refreshCookieService.clear(response);
+      return result;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        this.refreshCookieService.clear(response);
+      }
+      throw error;
+    }
   }
 
   // Logout all sessions
   @ApiLogoutAllEndpoint()
   @Post('logout-all')
   @HttpCode(200)
-  logoutAll(@Body() logoutAllRequestDto: LogoutAllRequestDto) {
-    return this.authService.logoutAll(logoutAllRequestDto);
+  async logoutAll(
+    @Body() logoutAllRequestDto: LogoutAllRequestDto,
+    @Request() request: ExpressRequest,
+    @Res({ passthrough: true }) response: ExpressResponse,
+  ) {
+    try {
+      const cookieRefreshToken = this.refreshCookieService.getToken(request);
+      const refreshToken =
+        cookieRefreshToken ?? logoutAllRequestDto.refresh_token;
+      if (!refreshToken) {
+        throw new UnauthorizedException('Refresh credentials are required');
+      }
+      const result = await this.authService.logoutAll(refreshToken);
+      this.refreshCookieService.clear(response);
+      return result;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        this.refreshCookieService.clear(response);
+      }
+      throw error;
+    }
   }
 
   // Get current user profile
@@ -212,7 +220,7 @@ export class AuthController {
   @Header('Cache-Control', 'no-store')
   async emailVerification(
     @Query() query: VerifyEmailQueryDto,
-    @Res() res: Response,
+    @Res() response: ExpressResponse,
   ) {
     const customResultUrl = this.config.getOrThrow<string>(
       'emailVerificationResultUrl',
@@ -224,7 +232,7 @@ export class AuthController {
     } catch (_error) {
       redirectUrl.searchParams.set('status', 'invalid');
     }
-    return res.redirect(redirectUrl.toString());
+    return response.redirect(redirectUrl.toString());
   }
 
   @ApiEmailVerificationResendEndpoint()

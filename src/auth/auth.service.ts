@@ -15,8 +15,8 @@ import { RefreshTokensService } from './tokens/refresh-tokens.service';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
 import { LoginRequestDto, LoginResponseDto } from './dto/login.dto';
 import { RefreshResponseDto } from './dto/refresh.dto';
-import { LogoutRequestDto, LogoutResponseDto } from './dto/logout.dto';
-import { LogoutAllRequestDto, LogoutAllResponseDto } from './dto/logoutAll.dto';
+import { LogoutResponseDto } from './dto/logout.dto';
+import { LogoutAllResponseDto } from './dto/logoutAll.dto';
 import { GetProfileResponseDto } from './dto/get-profile.dto';
 import { EmailVerificationTokensService } from './tokens/email-verification-tokens.service';
 import { DataSource } from 'typeorm';
@@ -478,10 +478,9 @@ export class AuthService implements OnModuleInit {
     };
   }
 
-  async logout(input: LogoutRequestDto): Promise<LogoutResponseDto> {
-    const dbToken = await this.refreshTokensService.verifyForRevocationOrThrow(
-      input.refresh_token,
-    );
+  async logout(refreshToken: string): Promise<LogoutResponseDto> {
+    const dbToken =
+      await this.refreshTokensService.verifyForRevocationOrThrow(refreshToken);
 
     const revokedAt = new Date();
 
@@ -509,10 +508,9 @@ export class AuthService implements OnModuleInit {
     return { message: 'ok' };
   }
 
-  async logoutAll(input: LogoutAllRequestDto): Promise<LogoutAllResponseDto> {
-    const dbToken = await this.refreshTokensService.verifyForRevocationOrThrow(
-      input.refresh_token,
-    );
+  async logoutAll(refreshToken: string): Promise<LogoutAllResponseDto> {
+    const dbToken =
+      await this.refreshTokensService.verifyForRevocationOrThrow(refreshToken);
 
     const revokedAt = new Date();
 
