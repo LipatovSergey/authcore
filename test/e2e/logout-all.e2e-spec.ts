@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, InternalServerErrorException } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource, IsNull, Repository } from 'typeorm';
@@ -11,12 +11,15 @@ import { RefreshToken } from '../../src/auth/entities/refresh-token.entity';
 import { JwtTokensService } from '../../src/auth/tokens/jwt-tokens.service';
 import { Session } from '../../src/auth/sessions/session.entity';
 import { User } from '../../src/users/entities/user.entity';
+import { AuthService } from '../../src/auth/auth.service';
+import { expectRefreshCookieCleared } from '../helpers/set-cookie-test.helper';
 
 describe('/auth/logout-all (POST)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let httpServer: App;
   let notificationsServiceMock: NotificationsServiceMock;
+  let agent: ReturnType<typeof request.agent>;
   let refreshToken1: string;
   let refreshToken2: string;
   let refreshTokenRepository: Repository<RefreshToken>;
@@ -24,6 +27,7 @@ describe('/auth/logout-all (POST)', () => {
   let sessionRepository: Repository<Session>;
   let userRepository: Repository<User>;
   let userEntity: User | null;
+  let authService: AuthService;
   const userLoginData = {
     email: 'tester@gmail.com',
     password: 'some spaced text',
@@ -36,10 +40,15 @@ describe('/auth/logout-all (POST)', () => {
     sessionRepository = dataSource.getRepository(Session);
     userRepository = dataSource.getRepository(User);
     jwtTokenService = app.get(JwtTokensService);
+    authService = app.get(AuthService);
   });
 
   afterAll(async () => {
     await app.close();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   beforeEach(async () => {
@@ -61,9 +70,8 @@ describe('/auth/logout-all (POST)', () => {
     expect(loginResponse1.statusCode).toBe(200);
     refreshToken1 = loginResponse1.body.refresh_token;
 
-    const loginResponse2 = await request(httpServer)
-      .post('/auth/login')
-      .send(userLoginData);
+    agent = request.agent(httpServer);
+    const loginResponse2 = await agent.post('/auth/login').send(userLoginData);
     expect(loginResponse2.statusCode).toBe(200);
     refreshToken2 = loginResponse2.body.refresh_token;
     userEntity = await userRepository.findOneBy({ email: userLoginData.email });
@@ -165,5 +173,72 @@ describe('/auth/logout-all (POST)', () => {
     });
     expect(res.statusCode).toBe(401);
     expect(res.body.message).toBe('Invalid refresh token');
+  });
+
+  describe('cookie transport', () => {
+    it('returns 200 and revokes all user sessions', async () => {
+      const res = await agent.post('/auth/logout-all');
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.message).toBe('ok');
+      const userSessions = await sessionRepository.find({
+        where: { userId: userEntity!.id },
+      });
+      expect(userSessions.length).toBeGreaterThan(0);
+      expect(userSessions.every((session) => session.revokedAt !== null)).toBe(
+        true,
+      );
+      const userRefreshTokens = await refreshTokenRepository.find({
+        where: { userId: userEntity!.id },
+      });
+      expect(userRefreshTokens.length).toBeGreaterThan(0);
+      expect(userRefreshTokens.every((token) => token.revokedAt !== null)).toBe(
+        true,
+      );
+    });
+
+    it('clears the refresh cookie after successful logout-all', async () => {
+      const res = await agent.post('/auth/logout-all');
+
+      expect(res.statusCode).toBe(200);
+      expectRefreshCookieCleared(res.headers['set-cookie']);
+    });
+
+    it('prefers cookie when body also contains a refresh token', async () => {
+      const res = await agent
+        .post('/auth/logout-all')
+        .send({ refresh_token: 'invalid refresh token' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.message).toBe('ok');
+    });
+
+    it('returns 401 and clears an invalid refresh cookie', async () => {
+      const res = await request(httpServer)
+        .post('/auth/logout-all')
+        .set('Cookie', 'refresh_token=invalid');
+
+      expect(res.statusCode).toBe(401);
+      expectRefreshCookieCleared(res.headers['set-cookie']);
+    });
+
+    it('returns 401 and clears the cookie when credentials are missing', async () => {
+      const res = await request(httpServer).post('/auth/logout-all');
+
+      expect(res.statusCode).toBe(401);
+      expect(res.body.message).toBe('Refresh credentials are required');
+      expectRefreshCookieCleared(res.headers['set-cookie']);
+    });
+
+    it('does not clear the refresh cookie after an internal error', async () => {
+      jest
+        .spyOn(authService, 'logoutAll')
+        .mockRejectedValueOnce(new InternalServerErrorException());
+
+      const res = await agent.post('/auth/logout-all');
+
+      expect(res.statusCode).toBe(500);
+      expect(res.headers['set-cookie']).toBeUndefined();
+    });
   });
 });

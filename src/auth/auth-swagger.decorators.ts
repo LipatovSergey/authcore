@@ -54,8 +54,14 @@ export function ApiLoginEndpoint() {
   return applyDecorators(
     ApiOperation({ summary: 'Log in with email and password' }),
     ApiOkResponse({
-      description: 'Tokens returned successfully',
+      description: 'Tokens returned and refresh cookie set successfully',
       type: LoginResponseDto,
+      headers: {
+        'Set-Cookie': {
+          description: 'HTTP-only refresh token cookie',
+          schema: { type: 'string' },
+        },
+      },
     }),
     ApiBadRequestResponse({
       description: 'Validation failed',
@@ -70,10 +76,20 @@ export function ApiLoginEndpoint() {
 
 export function ApiRefreshEndpoint() {
   return applyDecorators(
-    ApiOperation({ summary: 'Refresh access and refresh tokens' }),
+    ApiOperation({
+      summary: 'Refresh access and refresh tokens',
+      description:
+        'Accepts the refresh token from the HTTP-only cookie or request body. The cookie takes precedence when both are present.',
+    }),
     ApiOkResponse({
-      description: 'Tokens refreshed successfully',
+      description: 'Tokens refreshed and refresh cookie replaced successfully',
       type: RefreshResponseDto,
+      headers: {
+        'Set-Cookie': {
+          description: 'Rotated HTTP-only refresh token cookie',
+          schema: { type: 'string' },
+        },
+      },
     }),
     ApiBadRequestResponse({
       description: 'Validation failed',
@@ -88,10 +104,20 @@ export function ApiRefreshEndpoint() {
 
 export function ApiLogoutEndpoint() {
   return applyDecorators(
-    ApiOperation({ summary: 'Log out from current session' }),
+    ApiOperation({
+      summary: 'Log out from current session',
+      description:
+        'Accepts the refresh token from the HTTP-only cookie or request body. The cookie takes precedence when both are present.',
+    }),
     ApiOkResponse({
-      description: 'Current refresh token revoked successfully',
+      description: 'Current session revoked and refresh cookie cleared',
       type: LogoutResponseDto,
+      headers: {
+        'Set-Cookie': {
+          description: 'Clears the HTTP-only refresh token cookie',
+          schema: { type: 'string' },
+        },
+      },
     }),
     ApiBadRequestResponse({
       description: 'Validation failed',
@@ -100,16 +126,32 @@ export function ApiLogoutEndpoint() {
     ApiUnauthorizedResponse({
       description: 'Invalid refresh token',
       type: UnauthorizedErrorResponseDto,
+      headers: {
+        'Set-Cookie': {
+          description: 'Clears the unusable HTTP-only refresh token cookie',
+          schema: { type: 'string' },
+        },
+      },
     }),
   );
 }
 
 export function ApiLogoutAllEndpoint() {
   return applyDecorators(
-    ApiOperation({ summary: 'Log out from all sessions' }),
+    ApiOperation({
+      summary: 'Log out from all sessions',
+      description:
+        'Accepts the refresh token from the HTTP-only cookie or request body. The cookie takes precedence when both are present.',
+    }),
     ApiOkResponse({
-      description: 'All user refresh tokens revoked successfully',
+      description: 'All user sessions revoked and refresh cookie cleared',
       type: LogoutAllResponseDto,
+      headers: {
+        'Set-Cookie': {
+          description: 'Clears the HTTP-only refresh token cookie',
+          schema: { type: 'string' },
+        },
+      },
     }),
     ApiBadRequestResponse({
       description: 'Validation failed',
@@ -118,6 +160,12 @@ export function ApiLogoutAllEndpoint() {
     ApiUnauthorizedResponse({
       description: 'Invalid refresh token',
       type: UnauthorizedErrorResponseDto,
+      headers: {
+        'Set-Cookie': {
+          description: 'Clears the unusable HTTP-only refresh token cookie',
+          schema: { type: 'string' },
+        },
+      },
     }),
   );
 }
