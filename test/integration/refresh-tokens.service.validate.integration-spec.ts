@@ -71,9 +71,12 @@ describe('RefreshTokensService.validateOrThrow', () => {
 
   it('returns token for valid refresh token', async () => {
     const { id: userId } = await createUserFixture(dataSource);
-    const { rawToken, jti } = await jwtTokensService.signRefreshToken(userId);
-    const tokenHash = await secureHasher.hash(rawToken);
     const { id: sessionId } = await createSessionFixture(userId);
+    const { rawToken, jti } = await jwtTokensService.signRefreshToken({
+      sub: userId,
+      sid: sessionId,
+    });
+    const tokenHash = await secureHasher.hash(rawToken);
     const storedToken = await createRefreshTokenFixture({
       userId,
       jti,
@@ -98,7 +101,11 @@ describe('RefreshTokensService.validateOrThrow', () => {
 
   it('rejects token when database record does not exist', async () => {
     const { id: userId } = await createUserFixture(dataSource);
-    const { rawToken } = await jwtTokensService.signRefreshToken(userId);
+    const { id: sessionId } = await createSessionFixture(userId);
+    const { rawToken } = await jwtTokensService.signRefreshToken({
+      sub: userId,
+      sid: sessionId,
+    });
     await expect(
       refreshTokensService.validateActiveForRotationOrThrow(rawToken),
     ).rejects.toBeInstanceOf(UnauthorizedException);
@@ -123,7 +130,10 @@ describe('RefreshTokensService.validateOrThrow', () => {
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: null,
     });
-    const { rawToken, jti } = await jwtTokensService.signRefreshToken(userId);
+    const { rawToken, jti } = await jwtTokensService.signRefreshToken({
+      sub: userId,
+      sid: sessionId,
+    });
     const tokenHash = await secureHasher.hash(rawToken);
     await createRefreshTokenFixture({
       userId,
@@ -164,7 +174,10 @@ describe('RefreshTokensService.validateOrThrow', () => {
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: null,
     });
-    const { rawToken, jti } = await jwtTokensService.signRefreshToken(userId);
+    const { rawToken, jti } = await jwtTokensService.signRefreshToken({
+      sub: userId,
+      sid: sessionId,
+    });
     const mismatchedTokenHash = await secureHasher.hash(
       'different-refresh-token',
     );
@@ -207,7 +220,10 @@ describe('RefreshTokensService.validateOrThrow', () => {
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: null,
     });
-    const { rawToken, jti } = await jwtTokensService.signRefreshToken(userId);
+    const { rawToken, jti } = await jwtTokensService.signRefreshToken({
+      sub: userId,
+      sid: sessionId,
+    });
     const tokenHash = await secureHasher.hash(rawToken);
     await createRefreshTokenFixture({
       userId,

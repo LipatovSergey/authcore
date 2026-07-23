@@ -41,36 +41,76 @@ export class RefreshTokensService {
 
   private readonly logger = new Logger(RefreshTokensService.name);
 
-  private async verifyRefreshPayloadOrThrow(
-    token: string,
+  private async verifyPayloadOrThrow(
+    rawToken: string,
   ): Promise<RefreshTokenPayload> {
     try {
-      return await this.jwtTokensService.verifyRefreshToken(token);
+      return await this.jwtTokensService.verifyRefreshToken(rawToken);
     } catch (_error) {
-      this.logger.warn('Invalid refresh token');
+      this.logger.warn('Refresh token verification failed');
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
-  private async verifyAndLoadTokenOrThrow(
-    jti: string,
-    token: string,
-  ): Promise<RefreshToken> {
+  private async loadTokenRecordOrThrow(jti: string): Promise<RefreshToken> {
+    if (typeof jti !== 'string' || jti.length === 0) {
+      this.logger.warn('Refresh token identifier is invalid');
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
     const tokenInstance = await this.findByJti(jti);
-    if (!tokenInstance || Date.now() >= tokenInstance.expiresAt.getTime()) {
-      this.logger.warn('Invalid refresh token');
+    if (!tokenInstance) {
+      this.logger.warn('Refresh token record not found');
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    return tokenInstance;
+  }
+
+  private async validateTokenRecordOrThrow(input: {
+    tokenPayload: RefreshTokenPayload;
+    tokenInstance: RefreshToken;
+    rawToken: string;
+  }): Promise<void> {
+    const { tokenPayload, tokenInstance, rawToken } = input;
+
+    if (Date.now() >= tokenInstance.expiresAt.getTime()) {
+      this.logger.warn('Expired refresh token rejected');
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (tokenPayload.sub !== tokenInstance.userId) {
+      this.logger.error('Refresh token subject does not match persisted owner');
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (tokenPayload.sid !== tokenInstance.sessionId) {
+      this.logger.error(
+        'Refresh token session does not match persisted session',
+      );
       throw new UnauthorizedException('Invalid refresh token');
     }
 
     const isValid = await this.secureHasher.verify(
       tokenInstance.tokenHash,
-      token,
+      rawToken,
     );
     if (!isValid) {
-      this.logger.warn('Invalid refresh token');
+      this.logger.warn('Refresh token hash verification failed');
       throw new UnauthorizedException('Invalid refresh token');
     }
+  }
 
+  private async authenticateTokenOrThrow(
+    rawToken: string,
+  ): Promise<RefreshToken> {
+    const tokenPayload = await this.verifyPayloadOrThrow(rawToken);
+    const tokenInstance = await this.loadTokenRecordOrThrow(tokenPayload.jti);
+    await this.validateTokenRecordOrThrow({
+      tokenPayload,
+      tokenInstance,
+      rawToken,
+    });
     return tokenInstance;
   }
 
@@ -91,15 +131,14 @@ export class RefreshTokensService {
     await repo.save(token);
   }
 
-  async verifyForRevocationOrThrow(token: string): Promise<RefreshToken> {
-    const { jti } = await this.verifyRefreshPayloadOrThrow(token);
-    const tokenInstance = await this.verifyAndLoadTokenOrThrow(jti, token);
-    return tokenInstance;
+  async verifyForRevocationOrThrow(rawToken: string): Promise<RefreshToken> {
+    return this.authenticateTokenOrThrow(rawToken);
   }
 
-  async validateActiveForRotationOrThrow(token: string): Promise<RefreshToken> {
-    const { jti } = await this.verifyRefreshPayloadOrThrow(token);
-    const tokenInstance = await this.verifyAndLoadTokenOrThrow(jti, token);
+  async validateActiveForRotationOrThrow(
+    rawToken: string,
+  ): Promise<RefreshToken> {
+    const tokenInstance = await this.authenticateTokenOrThrow(rawToken);
 
     // Known revoked token with a matching hash means possible refresh token reuse
     if (tokenInstance.revokedAt !== null) {

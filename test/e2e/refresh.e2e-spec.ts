@@ -7,10 +7,10 @@ import {
   getLastEmailVerificationUrl,
   type NotificationsServiceMock,
 } from '../mocks/notifications-service.mock';
-import { RefreshTokensService } from '../../src/auth/tokens/refresh-tokens.service';
 import { Session } from '../../src/auth/sessions/session.entity';
 import { RefreshToken } from '../../src/auth/entities/refresh-token.entity';
 import { User } from '../../src/users/entities/user.entity';
+import { JwtTokensService } from '../../src/auth/tokens/jwt-tokens.service';
 
 describe('/auth/refresh (POST)', () => {
   let app: INestApplication<App>;
@@ -19,7 +19,7 @@ describe('/auth/refresh (POST)', () => {
   let notificationsServiceMock: NotificationsServiceMock;
   let refreshToken: string;
   let agent: ReturnType<typeof request.agent>;
-  let refreshTokensService: RefreshTokensService;
+  let jwtTokensService: JwtTokensService;
   let sessionsRepository: Repository<Session>;
   let userRepository: Repository<User>;
   let refreshTokenRepository: Repository<RefreshToken>;
@@ -31,7 +31,7 @@ describe('/auth/refresh (POST)', () => {
   beforeAll(async () => {
     ({ app, dataSource, httpServer, notificationsServiceMock } =
       await createTestApp());
-    refreshTokensService = app.get(RefreshTokensService);
+    jwtTokensService = app.get(JwtTokensService);
     sessionsRepository = dataSource.getRepository(Session);
     userRepository = dataSource.getRepository(User);
     refreshTokenRepository = dataSource.getRepository(RefreshToken);
@@ -246,43 +246,60 @@ describe('/auth/refresh (POST)', () => {
     });
 
     it('keeps the same session and updates last refreshed time after successful refresh', async () => {
-      const initialRefreshToken =
-        await refreshTokensService.validateActiveForRotationOrThrow(
-          refreshToken,
-        );
-      const initialSession = await sessionsRepository.findOneBy({
-        id: initialRefreshToken.sessionId,
+      const initialPayload =
+        await jwtTokensService.verifyRefreshToken(refreshToken);
+      const initialRefreshToken = await refreshTokenRepository.findOneByOrFail({
+        jti: initialPayload.jti,
       });
-      expect(initialSession).not.toBeNull();
-      expect(initialSession!.lastRefreshedAt).toBeNull();
+      const initialSession = await sessionsRepository.findOneByOrFail({
+        id: initialPayload.sid,
+      });
+
+      expect(initialRefreshToken.revokedAt).toBeNull();
+      expect(initialRefreshToken.sessionId).toBe(initialPayload.sid);
+      expect(initialSession.lastRefreshedAt).toBeNull();
+
       const res = await request(httpServer)
         .post('/auth/refresh')
         .send({ refresh_token: refreshToken });
+
       expect(res.statusCode).toBe(200);
       expect(res.body).toStrictEqual({
         access_token: expect.any(String),
         refresh_token: expect.any(String),
       });
+
       const rotatedRawRefreshToken = res.body.refresh_token;
-      const rotatedRefreshToken =
-        await refreshTokensService.validateActiveForRotationOrThrow(
-          rotatedRawRefreshToken,
-        );
-      const refreshedSession = await sessionsRepository.findOneBy({
-        id: rotatedRefreshToken.sessionId,
+      const rotatedPayload = await jwtTokensService.verifyRefreshToken(
+        rotatedRawRefreshToken,
+      );
+      const initialRefreshTokenAfterRotation =
+        await refreshTokenRepository.findOneByOrFail({
+          id: initialRefreshToken.id,
+        });
+      const rotatedRefreshToken = await refreshTokenRepository.findOneByOrFail({
+        jti: rotatedPayload.jti,
       });
-      expect(initialRefreshToken.sessionId).toBe(rotatedRefreshToken.sessionId);
-      expect(refreshedSession).not.toBeNull();
-      expect(refreshedSession!.lastRefreshedAt).not.toBeNull();
+      const refreshedSession = await sessionsRepository.findOneByOrFail({
+        id: rotatedPayload.sid,
+      });
+
+      expect(rotatedPayload.sub).toBe(initialPayload.sub);
+      expect(rotatedPayload.sid).toBe(initialPayload.sid);
+      expect(rotatedPayload.jti).not.toBe(initialPayload.jti);
+      expect(initialRefreshTokenAfterRotation.revokedAt).not.toBeNull();
+      expect(rotatedRefreshToken.revokedAt).toBeNull();
+      expect(rotatedRefreshToken.sessionId).toBe(rotatedPayload.sid);
+      expect(refreshedSession.id).toBe(rotatedPayload.sid);
+      expect(refreshedSession.revokedAt).toBeNull();
+      expect(refreshedSession.lastRefreshedAt).not.toBeNull();
     });
 
     it('returns 401 when session is revoked', async () => {
-      const validatedToken =
-        await refreshTokensService.validateActiveForRotationOrThrow(
-          refreshToken,
-        );
+      const tokenPayload =
+        await jwtTokensService.verifyRefreshToken(refreshToken);
       const activeSession = await sessionsRepository.findOneBy({
-        id: validatedToken.sessionId,
+        id: tokenPayload.sid,
       });
       expect(activeSession).not.toBeNull();
       await sessionsRepository.update(

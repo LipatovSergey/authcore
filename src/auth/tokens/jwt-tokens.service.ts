@@ -84,9 +84,13 @@ export class JwtTokensService {
     });
   }
 
-  async signRefreshToken(sub: string): Promise<IssuedRefreshToken> {
+  async signRefreshToken(input: {
+    sub: string;
+    sid: string;
+  }): Promise<IssuedRefreshToken> {
+    const { sub, sid } = input;
     const jti = randomUUID();
-    const payload: RefreshTokenPayload = { sub, jti };
+    const payload: RefreshTokenPayload = { sub, sid, jti };
     const rawToken = await this.jwtService.signAsync(payload, {
       secret: this.config.getOrThrow<string>('jwt.refreshSecret'),
       expiresIn: this.config.getOrThrow<string>(

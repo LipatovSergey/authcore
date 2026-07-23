@@ -8,7 +8,8 @@ import {
   type NotificationsServiceMock,
 } from '../mocks/notifications-service.mock';
 import { Session } from '../../src/auth/sessions/session.entity';
-import { RefreshTokensService } from '../../src/auth/tokens/refresh-tokens.service';
+import { RefreshToken } from '../../src/auth/entities/refresh-token.entity';
+import { JwtTokensService } from '../../src/auth/tokens/jwt-tokens.service';
 
 describe('/auth/login (POST)', () => {
   let app: INestApplication<App>;
@@ -16,13 +17,15 @@ describe('/auth/login (POST)', () => {
   let httpServer: App;
   let notificationsServiceMock: NotificationsServiceMock;
   let sessionsRepository: Repository<Session>;
-  let refreshTokensService: RefreshTokensService;
+  let refreshTokensRepository: Repository<RefreshToken>;
+  let jwtTokensService: JwtTokensService;
 
   beforeAll(async () => {
     ({ app, dataSource, httpServer, notificationsServiceMock } =
       await createTestApp());
     sessionsRepository = dataSource.getRepository(Session);
-    refreshTokensService = app.get(RefreshTokensService);
+    refreshTokensRepository = dataSource.getRepository(RefreshToken);
+    jwtTokensService = app.get(JwtTokensService);
   });
 
   afterAll(async () => {
@@ -55,16 +58,57 @@ describe('/auth/login (POST)', () => {
       refresh_token: expect.any(String),
     });
     const rawRefreshToken = res.body.refresh_token;
-    const validRefreshToken =
-      await refreshTokensService.validateActiveForRotationOrThrow(
-        rawRefreshToken,
-      );
-    const session = await sessionsRepository.findOneByOrFail({
-      id: validRefreshToken.sessionId,
+    const tokenPayload =
+      await jwtTokensService.verifyRefreshToken(rawRefreshToken);
+    const refreshToken = await refreshTokensRepository.findOneByOrFail({
+      jti: tokenPayload.jti,
     });
-    expect(session.userId).toBe(validRefreshToken.userId);
+    const session = await sessionsRepository.findOneByOrFail({
+      id: tokenPayload.sid,
+    });
+
+    expect(refreshToken.jti).toBe(tokenPayload.jti);
+    expect(refreshToken.userId).toBe(tokenPayload.sub);
+    expect(refreshToken.sessionId).toBe(tokenPayload.sid);
+    expect(refreshToken.revokedAt).toBeNull();
+    expect(refreshToken.expiresAt.getTime()).toBeGreaterThan(Date.now());
+    expect(session.id).toBe(tokenPayload.sid);
+    expect(session.userId).toBe(tokenPayload.sub);
     expect(session.revokedAt).toBeNull();
     expect(session.lastRefreshedAt).toBeNull();
+  });
+
+  it('creates a separate session for each successful login', async () => {
+    const firstLogin = await request(httpServer).post('/auth/login').send({
+      email: 'tester@gmail.com',
+      password: 'some spaced text',
+    });
+    const secondLogin = await request(httpServer).post('/auth/login').send({
+      email: 'tester@gmail.com',
+      password: 'some spaced text',
+    });
+
+    expect(firstLogin.statusCode).toBe(200);
+    expect(secondLogin.statusCode).toBe(200);
+
+    const firstPayload = await jwtTokensService.verifyRefreshToken(
+      firstLogin.body.refresh_token,
+    );
+    const secondPayload = await jwtTokensService.verifyRefreshToken(
+      secondLogin.body.refresh_token,
+    );
+    const firstSession = await sessionsRepository.findOneByOrFail({
+      id: firstPayload.sid,
+    });
+    const secondSession = await sessionsRepository.findOneByOrFail({
+      id: secondPayload.sid,
+    });
+
+    expect(firstPayload.sub).toBe(secondPayload.sub);
+    expect(firstPayload.sid).not.toBe(secondPayload.sid);
+    expect(firstPayload.jti).not.toBe(secondPayload.jti);
+    expect(firstSession.revokedAt).toBeNull();
+    expect(secondSession.revokedAt).toBeNull();
   });
 
   it('should set refresh token cookie on successful login', async () => {

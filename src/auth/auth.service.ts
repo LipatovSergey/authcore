@@ -352,30 +352,39 @@ export class AuthService implements OnModuleInit {
       });
     }
 
-    const issuedRefreshToken = await this.jwtTokensService.signRefreshToken(
-      user.id,
-    );
+    const { sessionId, rawRefreshToken } = await this.dataSource.transaction(
+      async (manager) => {
+        const session = await this.sessionService.createSession(
+          {
+            userId: user.id,
+            ipAddress: metadata.ipAddress,
+            userAgent: metadata.userAgent,
+          },
+          manager,
+        );
 
-    const sessionId = await this.dataSource.transaction(async (manager) => {
-      const session = await this.sessionService.createSession(
-        {
-          userId: user.id,
-          ipAddress: metadata.ipAddress,
-          userAgent: metadata.userAgent,
-        },
-        manager,
-      );
-      await this.refreshTokensService.create(
-        {
-          ...issuedRefreshToken,
-          userId: user.id,
+        const issuedRefreshToken = await this.jwtTokensService.signRefreshToken(
+          {
+            sid: session.id,
+            sub: user.id,
+          },
+        );
+
+        await this.refreshTokensService.create(
+          {
+            ...issuedRefreshToken,
+            userId: user.id,
+            sessionId: session.id,
+          },
+          manager,
+        );
+
+        return {
           sessionId: session.id,
-        },
-        manager,
-      );
-
-      return session.id;
-    });
+          rawRefreshToken: issuedRefreshToken.rawToken,
+        };
+      },
+    );
 
     const rawAccessToken = await this.jwtTokensService.signAccessToken({
       sub: user.id,
@@ -386,7 +395,7 @@ export class AuthService implements OnModuleInit {
     this.logger.log(`User logged in: email=${user.email} userId=${user.id}`);
     return {
       access_token: rawAccessToken,
-      refresh_token: issuedRefreshToken.rawToken,
+      refresh_token: rawRefreshToken,
     };
   }
 
@@ -429,9 +438,10 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const issuedRefreshToken = await this.jwtTokensService.signRefreshToken(
-      user.id,
-    );
+    const issuedRefreshToken = await this.jwtTokensService.signRefreshToken({
+      sub: user.id,
+      sid: validatedToken.sessionId,
+    });
 
     const sessionId = await this.dataSource.transaction(async (manager) => {
       const activeSession =
