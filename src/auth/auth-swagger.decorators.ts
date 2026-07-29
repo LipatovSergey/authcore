@@ -54,7 +54,7 @@ export function ApiLoginEndpoint() {
   return applyDecorators(
     ApiOperation({ summary: 'Log in with email and password' }),
     ApiOkResponse({
-      description: 'Tokens returned and refresh cookie set successfully',
+      description: 'Access token returned and refresh cookie set successfully',
       type: LoginResponseDto,
       headers: {
         'Set-Cookie': {
@@ -77,12 +77,13 @@ export function ApiLoginEndpoint() {
 export function ApiRefreshEndpoint() {
   return applyDecorators(
     ApiOperation({
-      summary: 'Refresh access and refresh tokens',
+      summary: 'Rotate the refresh cookie and issue an access token',
       description:
-        'Accepts the refresh token from the HTTP-only cookie or request body. The cookie takes precedence when both are present.',
+        'Requires the refresh token in the HTTP-only refresh cookie. Request-body refresh tokens are not supported.',
     }),
     ApiOkResponse({
-      description: 'Tokens refreshed and refresh cookie replaced successfully',
+      description:
+        'Access token returned and refresh cookie replaced successfully',
       type: RefreshResponseDto,
       headers: {
         'Set-Cookie': {
@@ -107,7 +108,7 @@ export function ApiLogoutEndpoint() {
     ApiOperation({
       summary: 'Log out from current session',
       description:
-        'Accepts the refresh token from the HTTP-only cookie or request body. The cookie takes precedence when both are present.',
+        'Requires the refresh token in the HTTP-only refresh cookie. Request-body refresh tokens are not supported.',
     }),
     ApiOkResponse({
       description: 'Current session revoked and refresh cookie cleared',
@@ -141,7 +142,7 @@ export function ApiLogoutAllEndpoint() {
     ApiOperation({
       summary: 'Log out from all sessions',
       description:
-        'Accepts the refresh token from the HTTP-only cookie or request body. The cookie takes precedence when both are present.',
+        'Requires the refresh token in the HTTP-only refresh cookie. Request-body refresh tokens are not supported.',
     }),
     ApiOkResponse({
       description: 'All user sessions revoked and refresh cookie cleared',

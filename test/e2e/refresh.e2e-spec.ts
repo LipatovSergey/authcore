@@ -11,6 +11,7 @@ import { Session } from '../../src/auth/sessions/session.entity';
 import { RefreshToken } from '../../src/auth/entities/refresh-token.entity';
 import { User } from '../../src/users/entities/user.entity';
 import { JwtTokensService } from '../../src/auth/tokens/jwt-tokens.service';
+import { getRefreshTokenFromCookie } from '../helpers/set-cookie-test.helper';
 
 describe('/auth/refresh (POST)', () => {
   let app: INestApplication<App>;
@@ -58,73 +59,48 @@ describe('/auth/refresh (POST)', () => {
       password: 'some spaced text',
     });
     expect(loginResponse.statusCode).toBe(200);
-    refreshToken = loginResponse.body.refresh_token;
+    refreshToken = getRefreshTokenFromCookie(
+      loginResponse.headers['set-cookie'],
+    );
   });
 
-  describe('body transport', () => {
-    it('returns 200 if credentials are valid', async () => {
-      const res = await request(httpServer)
-        .post('/auth/refresh')
-        .send({ refresh_token: refreshToken });
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toStrictEqual({
-        access_token: expect.any(String),
-        refresh_token: expect.any(String),
-      });
-    });
-
-    it('returns 200 when using the newly issued refresh token after rotation', async () => {
-      const response = await request(httpServer).post('/auth/refresh').send({
-        refresh_token: refreshToken,
-      });
-      const newRefreshToken = response.body.refresh_token;
-      const res = await request(httpServer).post('/auth/refresh').send({
-        refresh_token: newRefreshToken,
-      });
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toStrictEqual({
-        access_token: expect.any(String),
-        refresh_token: expect.any(String),
-      });
-    });
-
-    it('returns 401 if invalid token was passed', async () => {
-      const res = await request(httpServer).post('/auth/refresh').send({
-        refresh_token: 'invalid token',
-      });
-      expect(res.statusCode).toBe(401);
-      expect(res.body.message).toBe('Invalid refresh token');
-    });
-  });
-
-  describe('cookie transport', () => {
-    it('returns 200 when refresh token is sent only in cookie', async () => {
+  describe('cookie-only transport', () => {
+    it('returns 200 and an access token when the refresh cookie is valid', async () => {
       const res = await agent.post('/auth/refresh');
 
       expect(res.statusCode).toBe(200);
       expect(res.body).toStrictEqual({
         access_token: expect.any(String),
-        refresh_token: expect.any(String),
       });
     });
 
     it('replaces the cookie after refresh token rotation', async () => {
       const firstRefresh = await agent.post('/auth/refresh').expect(200);
       const secondRefresh = await agent.post('/auth/refresh').expect(200);
-
-      expect(firstRefresh.body.refresh_token).toEqual(expect.any(String));
-      expect(secondRefresh.body.refresh_token).toEqual(expect.any(String));
-      expect(secondRefresh.body.refresh_token).not.toBe(
-        firstRefresh.body.refresh_token,
+      const firstRotatedToken = getRefreshTokenFromCookie(
+        firstRefresh.headers['set-cookie'],
       );
+      const secondRotatedToken = getRefreshTokenFromCookie(
+        secondRefresh.headers['set-cookie'],
+      );
+
+      expect(firstRefresh.body).toStrictEqual({
+        access_token: expect.any(String),
+      });
+      expect(secondRefresh.body).toStrictEqual({
+        access_token: expect.any(String),
+      });
+      expect(firstRotatedToken).not.toBe(refreshToken);
+      expect(secondRotatedToken).not.toBe(firstRotatedToken);
     });
 
-    it('prefers cookie when body also contains a refresh token', async () => {
-      const res = await agent
+    it('does not authenticate with a refresh token from the request body', async () => {
+      const res = await request(httpServer)
         .post('/auth/refresh')
-        .send({ refresh_token: 'invalid token' });
+        .send({ refresh_token: refreshToken });
 
-      expect(res.statusCode).toBe(200);
+      expect(res.statusCode).toBe(401);
+      expect(res.body.message).toBe('Refresh credentials are required');
     });
 
     it('returns 401 when refresh credentials are missing', async () => {
@@ -142,6 +118,15 @@ describe('/auth/refresh (POST)', () => {
       expect(res.statusCode).toBe(401);
       expect(res.body.message).toBe('Invalid refresh credentials');
     });
+
+    it('returns 401 when the refresh cookie is invalid', async () => {
+      const res = await request(httpServer)
+        .post('/auth/refresh')
+        .set('Cookie', 'refresh_token=invalid');
+
+      expect(res.statusCode).toBe(401);
+      expect(res.body.message).toBe('Invalid refresh token');
+    });
   });
 
   describe('rotation and session behavior', () => {
@@ -153,14 +138,12 @@ describe('/auth/refresh (POST)', () => {
 
       await request(httpServer)
         .post('/auth/refresh')
-        .send({
-          refresh_token: refreshToken,
-        })
+        .set('Cookie', `refresh_token=${refreshToken}`)
         .expect(200);
 
-      const res = await request(httpServer).post('/auth/refresh').send({
-        refresh_token: refreshToken,
-      });
+      const res = await request(httpServer)
+        .post('/auth/refresh')
+        .set('Cookie', `refresh_token=${refreshToken}`);
       expect(res.statusCode).toBe(401);
       expect(res.body.message).toBe('Invalid refresh token');
 
@@ -214,11 +197,11 @@ describe('/auth/refresh (POST)', () => {
 
       await request(httpServer)
         .post('/auth/refresh')
-        .send({ refresh_token: refreshToken })
+        .set('Cookie', `refresh_token=${refreshToken}`)
         .expect(200);
       await request(httpServer)
         .post('/auth/refresh')
-        .send({ refresh_token: refreshToken })
+        .set('Cookie', `refresh_token=${refreshToken}`)
         .expect(401);
 
       const otherSessionAfterReuse = await sessionsRepository.findOneByOrFail({
@@ -235,12 +218,12 @@ describe('/auth/refresh (POST)', () => {
     it('returns 401 when revoked token reused after logout', async () => {
       await request(httpServer)
         .post('/auth/logout')
-        .send({ refresh_token: refreshToken })
+        .set('Cookie', `refresh_token=${refreshToken}`)
         .expect(200);
 
-      const res = await request(httpServer).post('/auth/refresh').send({
-        refresh_token: refreshToken,
-      });
+      const res = await request(httpServer)
+        .post('/auth/refresh')
+        .set('Cookie', `refresh_token=${refreshToken}`);
       expect(res.statusCode).toBe(401);
       expect(res.body.message).toBe('Invalid refresh token');
     });
@@ -259,17 +242,16 @@ describe('/auth/refresh (POST)', () => {
       expect(initialRefreshToken.sessionId).toBe(initialPayload.sid);
       expect(initialSession.lastRefreshedAt).toBeNull();
 
-      const res = await request(httpServer)
-        .post('/auth/refresh')
-        .send({ refresh_token: refreshToken });
+      const res = await agent.post('/auth/refresh');
 
       expect(res.statusCode).toBe(200);
       expect(res.body).toStrictEqual({
         access_token: expect.any(String),
-        refresh_token: expect.any(String),
       });
 
-      const rotatedRawRefreshToken = res.body.refresh_token;
+      const rotatedRawRefreshToken = getRefreshTokenFromCookie(
+        res.headers['set-cookie'],
+      );
       const rotatedPayload = await jwtTokensService.verifyRefreshToken(
         rotatedRawRefreshToken,
       );
@@ -306,9 +288,7 @@ describe('/auth/refresh (POST)', () => {
         { id: activeSession!.id },
         { revokedAt: new Date() },
       );
-      const res = await request(httpServer)
-        .post('/auth/refresh')
-        .send({ refresh_token: refreshToken });
+      const res = await agent.post('/auth/refresh');
       expect(res.statusCode).toBe(401);
       expect(res.body.message).toBe('Invalid refresh token');
     });

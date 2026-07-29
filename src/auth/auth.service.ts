@@ -13,8 +13,7 @@ import {
 import { JwtTokensService } from './tokens/jwt-tokens.service';
 import { RefreshTokensService } from './tokens/refresh-tokens.service';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
-import { LoginRequestDto, LoginResponseDto } from './dto/login.dto';
-import { RefreshResponseDto } from './dto/refresh.dto';
+import { LoginRequestDto } from './dto/login.dto';
 import { LogoutResponseDto } from './dto/logout.dto';
 import { LogoutAllResponseDto } from './dto/logoutAll.dto';
 import { GetProfileResponseDto } from './dto/get-profile.dto';
@@ -39,6 +38,7 @@ import { GetSessionsResponseDto } from './dto/get-sessions.dto';
 import { RevokeSessionResponseDto } from './dto/revoke-session.dto';
 import { RevokeOtherSessionsResponseDto } from './dto/revoke-other-sessions.dto';
 import { userAgentParser } from './sessions/parse-user-agent.util';
+import { AuthTokenPair } from './types/auth-tokens';
 export const VERIFY_EMAIL_OUTCOME = {
   VERIFIED: 'verified',
   ALREADY_VERIFIED: 'already_verified',
@@ -318,7 +318,7 @@ export class AuthService implements OnModuleInit {
       userAgent: string | null;
       ipAddress: string | null;
     };
-  }): Promise<LoginResponseDto> {
+  }): Promise<AuthTokenPair> {
     const { credentials, metadata } = input;
     const user = await this.usersService.findByEmail(credentials.email);
     if (!user) {
@@ -394,17 +394,17 @@ export class AuthService implements OnModuleInit {
 
     this.logger.log(`User logged in: email=${user.email} userId=${user.id}`);
     return {
-      access_token: rawAccessToken,
-      refresh_token: rawRefreshToken,
+      rawAccessToken,
+      rawRefreshToken,
     };
   }
 
-  async refresh(refreshToken: string): Promise<RefreshResponseDto> {
-    let validatedToken: RefreshToken;
+  async refresh(rawRefreshToken: string): Promise<AuthTokenPair> {
+    let validatedRefreshToken: RefreshToken;
     try {
-      validatedToken =
+      validatedRefreshToken =
         await this.refreshTokensService.validateActiveForRotationOrThrow(
-          refreshToken,
+          rawRefreshToken,
         );
     } catch (error) {
       if (!(error instanceof RefreshTokenReuseDetectedError)) {
@@ -430,24 +430,24 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const user = await this.usersService.findById(validatedToken.userId);
+    const user = await this.usersService.findById(validatedRefreshToken.userId);
     if (!user) {
       this.logger.warn(
-        `Failed to refresh token because owner does not exist: userId=${validatedToken.userId}`,
+        `Failed to refresh token because owner does not exist: userId=${validatedRefreshToken.userId}`,
       );
       throw new UnauthorizedException('Invalid refresh token');
     }
 
     const issuedRefreshToken = await this.jwtTokensService.signRefreshToken({
       sub: user.id,
-      sid: validatedToken.sessionId,
+      sid: validatedRefreshToken.sessionId,
     });
 
     const sessionId = await this.dataSource.transaction(async (manager) => {
       const activeSession =
         await this.sessionService.validateActiveUserSessionOrThrow(
           {
-            sessionId: validatedToken.sessionId,
+            sessionId: validatedRefreshToken.sessionId,
             userId: user.id,
           },
           manager,
@@ -455,7 +455,7 @@ export class AuthService implements OnModuleInit {
 
       await this.refreshTokensService.rotate(
         {
-          oldTokenId: validatedToken.id,
+          oldTokenId: validatedRefreshToken.id,
           newTokenInput: {
             ...issuedRefreshToken,
             userId: user.id,
@@ -483,8 +483,8 @@ export class AuthService implements OnModuleInit {
 
     this.logger.log(`Token refreshed: userId=${user.id}`);
     return {
-      access_token: rawAccessToken,
-      refresh_token: issuedRefreshToken.rawToken,
+      rawAccessToken,
+      rawRefreshToken: issuedRefreshToken.rawToken,
     };
   }
 

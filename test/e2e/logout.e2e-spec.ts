@@ -11,7 +11,10 @@ import { RefreshToken } from '../../src/auth/entities/refresh-token.entity';
 import { Session } from '../../src/auth/sessions/session.entity';
 import { JwtTokensService } from '../../src/auth/tokens/jwt-tokens.service';
 import { AuthService } from '../../src/auth/auth.service';
-import { expectRefreshCookieCleared } from '../helpers/set-cookie-test.helper';
+import {
+  expectRefreshCookieCleared,
+  getRefreshTokenFromCookie,
+} from '../helpers/set-cookie-test.helper';
 
 describe('/auth/logout (POST)', () => {
   let app: INestApplication<App>;
@@ -63,7 +66,9 @@ describe('/auth/logout (POST)', () => {
     agent = request.agent(httpServer);
     const loginResponse = await agent.post('/auth/login').send(userLoginData);
     expect(loginResponse.statusCode).toBe(200);
-    sessionToLogoutRawToken = loginResponse.body.refresh_token;
+    sessionToLogoutRawToken = getRefreshTokenFromCookie(
+      loginResponse.headers['set-cookie'],
+    );
     const sessionToLogoutTokenPayload =
       await jwtTokensService.verifyRefreshToken(sessionToLogoutRawToken);
     sessionToLogoutTokenEntity = await refreshTokenRepository.findOneBy({
@@ -72,9 +77,7 @@ describe('/auth/logout (POST)', () => {
   });
 
   it('returns 200 if logout succeeds', async () => {
-    const res = await request(httpServer).post('/auth/logout').send({
-      refresh_token: sessionToLogoutRawToken,
-    });
+    const res = await agent.post('/auth/logout');
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe('ok');
     const sessionToLogout = await sessionRepository.findOneBy({
@@ -94,18 +97,17 @@ describe('/auth/logout (POST)', () => {
     const remainingSessionLoginResponse = await request(httpServer)
       .post('/auth/login')
       .send(userLoginData);
+    const remainingSessionRawToken = getRefreshTokenFromCookie(
+      remainingSessionLoginResponse.headers['set-cookie'],
+    );
     const remainingSessionTokenPayload =
-      await jwtTokensService.verifyRefreshToken(
-        remainingSessionLoginResponse.body.refresh_token,
-      );
+      await jwtTokensService.verifyRefreshToken(remainingSessionRawToken);
     const remainingSessionTokenEntity = await refreshTokenRepository.findOneBy({
       jti: remainingSessionTokenPayload.jti,
     });
     expect(remainingSessionTokenEntity).not.toBeNull();
     expect(remainingSessionTokenEntity!.revokedAt).toBeNull();
-    await request(httpServer).post('/auth/logout').send({
-      refresh_token: sessionToLogoutRawToken,
-    });
+    await agent.post('/auth/logout').expect(200);
     const remainingSession = await sessionRepository.findOneBy({
       id: remainingSessionTokenEntity!.sessionId,
     });
@@ -114,88 +116,66 @@ describe('/auth/logout (POST)', () => {
   });
 
   it('returns 401 if invalid token was passed', async () => {
-    const res = await request(httpServer).post('/auth/logout').send({
-      refresh_token: 'invalid refresh token',
-    });
+    const res = await request(httpServer)
+      .post('/auth/logout')
+      .set('Cookie', 'refresh_token=invalid');
     expect(res.statusCode).toBe(401);
     expect(res.body.message).toBe('Invalid refresh token');
+    expectRefreshCookieCleared(res.headers['set-cookie']);
   });
 
   it('returns 200 when logout is repeated with an already revoked token', async () => {
     await request(httpServer)
       .post('/auth/logout')
-      .send({
-        refresh_token: sessionToLogoutRawToken,
-      })
+      .set('Cookie', `refresh_token=${sessionToLogoutRawToken}`)
       .expect(200);
 
-    const res = await request(httpServer).post('/auth/logout').send({
-      refresh_token: sessionToLogoutRawToken,
-    });
+    const res = await request(httpServer)
+      .post('/auth/logout')
+      .set('Cookie', `refresh_token=${sessionToLogoutRawToken}`);
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe('ok');
   });
 
-  describe('cookie transport', () => {
-    it('returns 200 and revokes the current session', async () => {
-      const res = await agent.post('/auth/logout');
+  it('clears the refresh cookie after successful logout', async () => {
+    const res = await agent.post('/auth/logout');
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body.message).toBe('ok');
-      const session = await sessionRepository.findOneByOrFail({
-        id: sessionToLogoutTokenEntity!.sessionId,
-      });
-      expect(session.revokedAt).not.toBeNull();
-    });
+    expect(res.statusCode).toBe(200);
+    expectRefreshCookieCleared(res.headers['set-cookie']);
+  });
 
-    it('clears the refresh cookie after successful logout', async () => {
-      const res = await agent.post('/auth/logout');
+  it('cannot refresh through the same agent after logout', async () => {
+    await agent.post('/auth/logout').expect(200);
 
-      expect(res.statusCode).toBe(200);
-      expectRefreshCookieCleared(res.headers['set-cookie']);
-    });
+    await agent.post('/auth/refresh').expect(401);
+  });
 
-    it('cannot refresh through the same agent after logout', async () => {
-      await agent.post('/auth/logout').expect(200);
+  it('does not authenticate with a refresh token from the request body', async () => {
+    const res = await request(httpServer)
+      .post('/auth/logout')
+      .send({ refresh_token: sessionToLogoutRawToken });
 
-      await agent.post('/auth/refresh').expect(401);
-    });
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Refresh credentials are required');
+    expectRefreshCookieCleared(res.headers['set-cookie']);
+  });
 
-    it('prefers cookie when body also contains a refresh token', async () => {
-      const res = await agent
-        .post('/auth/logout')
-        .send({ refresh_token: 'invalid refresh token' });
+  it('returns 401 and clears the cookie when credentials are missing', async () => {
+    const res = await request(httpServer).post('/auth/logout');
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body.message).toBe('ok');
-    });
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Refresh credentials are required');
+    expectRefreshCookieCleared(res.headers['set-cookie']);
+  });
 
-    it('returns 401 and clears an invalid refresh cookie', async () => {
-      const res = await request(httpServer)
-        .post('/auth/logout')
-        .set('Cookie', 'refresh_token=invalid');
+  it('does not clear the refresh cookie after an internal error', async () => {
+    jest
+      .spyOn(authService, 'logout')
+      .mockRejectedValueOnce(new InternalServerErrorException());
 
-      expect(res.statusCode).toBe(401);
-      expectRefreshCookieCleared(res.headers['set-cookie']);
-    });
+    const res = await agent.post('/auth/logout');
 
-    it('returns 401 and clears the cookie when credentials are missing', async () => {
-      const res = await request(httpServer).post('/auth/logout');
-
-      expect(res.statusCode).toBe(401);
-      expect(res.body.message).toBe('Refresh credentials are required');
-      expectRefreshCookieCleared(res.headers['set-cookie']);
-    });
-
-    it('does not clear the refresh cookie after an internal error', async () => {
-      jest
-        .spyOn(authService, 'logout')
-        .mockRejectedValueOnce(new InternalServerErrorException());
-
-      const res = await agent.post('/auth/logout');
-
-      expect(res.statusCode).toBe(500);
-      expect(res.headers['set-cookie']).toBeUndefined();
-    });
+    expect(res.statusCode).toBe(500);
+    expect(res.headers['set-cookie']).toBeUndefined();
   });
 });
