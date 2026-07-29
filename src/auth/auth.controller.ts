@@ -15,10 +15,8 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
-import { LoginRequestDto } from './dto/login.dto';
-import { RefreshRequestDto } from './dto/refresh.dto';
-import { LogoutRequestDto } from './dto/logout.dto';
-import { LogoutAllRequestDto } from './dto/logoutAll.dto';
+import { LoginRequestDto, LoginResponseDto } from './dto/login.dto';
+import { RefreshResponseDto } from './dto/refresh.dto';
 import { AuthGuard } from './auth.guard';
 import type { AuthenticatedRequest } from './types/authenticated-request';
 import type {
@@ -79,16 +77,16 @@ export class AuthController {
     @Body() loginRequestDto: LoginRequestDto,
     @Request() request: ExpressRequest,
     @Res({ passthrough: true }) response: ExpressResponse,
-  ) {
+  ): Promise<LoginResponseDto> {
     const rawUserAgent = request.headers['user-agent'];
     const userAgent = typeof rawUserAgent === 'string' ? rawUserAgent : null;
     const ipAddress = request.ip ?? null;
-    const tokens = await this.authService.login({
+    const tokenPair = await this.authService.login({
       credentials: loginRequestDto,
       metadata: { userAgent, ipAddress },
     });
-    this.refreshCookieService.set(response, tokens.refresh_token);
-    return tokens;
+    this.refreshCookieService.set(response, tokenPair.rawRefreshToken);
+    return { access_token: tokenPair.rawAccessToken };
   }
 
   // Refresh token
@@ -98,20 +96,18 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(200)
   async refresh(
-    @Body() refreshRequestDto: RefreshRequestDto,
     @Request() request: ExpressRequest,
     @Res({ passthrough: true }) response: ExpressResponse,
-  ) {
-    const cookieRefreshToken = this.refreshCookieService.getToken(request);
-    const refreshToken = cookieRefreshToken ?? refreshRequestDto.refresh_token;
+  ): Promise<RefreshResponseDto> {
+    const refreshToken = this.refreshCookieService.getToken(request);
 
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh credentials are required');
     }
 
-    const tokens = await this.authService.refresh(refreshToken);
-    this.refreshCookieService.set(response, tokens.refresh_token);
-    return tokens;
+    const tokenPair = await this.authService.refresh(refreshToken);
+    this.refreshCookieService.set(response, tokenPair.rawRefreshToken);
+    return { access_token: tokenPair.rawAccessToken };
   }
 
   // Logout current session
@@ -119,13 +115,11 @@ export class AuthController {
   @Post('logout')
   @HttpCode(200)
   async logout(
-    @Body() logoutRequestDto: LogoutRequestDto,
     @Request() request: ExpressRequest,
     @Res({ passthrough: true }) response: ExpressResponse,
   ) {
     try {
-      const cookieRefreshToken = this.refreshCookieService.getToken(request);
-      const refreshToken = cookieRefreshToken ?? logoutRequestDto.refresh_token;
+      const refreshToken = this.refreshCookieService.getToken(request);
       if (!refreshToken) {
         throw new UnauthorizedException('Refresh credentials are required');
       }
@@ -145,14 +139,11 @@ export class AuthController {
   @Post('logout-all')
   @HttpCode(200)
   async logoutAll(
-    @Body() logoutAllRequestDto: LogoutAllRequestDto,
     @Request() request: ExpressRequest,
     @Res({ passthrough: true }) response: ExpressResponse,
   ) {
     try {
-      const cookieRefreshToken = this.refreshCookieService.getToken(request);
-      const refreshToken =
-        cookieRefreshToken ?? logoutAllRequestDto.refresh_token;
+      const refreshToken = this.refreshCookieService.getToken(request);
       if (!refreshToken) {
         throw new UnauthorizedException('Refresh credentials are required');
       }

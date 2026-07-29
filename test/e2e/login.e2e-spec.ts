@@ -10,6 +10,11 @@ import {
 import { Session } from '../../src/auth/sessions/session.entity';
 import { RefreshToken } from '../../src/auth/entities/refresh-token.entity';
 import { JwtTokensService } from '../../src/auth/tokens/jwt-tokens.service';
+import {
+  getRefreshTokenFromCookie,
+  getSetCookie,
+  parseSetCookie,
+} from '../helpers/set-cookie-test.helper';
 
 describe('/auth/login (POST)', () => {
   let app: INestApplication<App>;
@@ -46,7 +51,7 @@ describe('/auth/login (POST)', () => {
     await request(httpServer).get(`${url.pathname}${url.search}`);
   });
 
-  it('returns 200 and auth tokens for valid credentials', async () => {
+  it('returns 200 and an access token for valid credentials', async () => {
     const res = await request(httpServer).post('/auth/login').send({
       email: 'tester@gmail.com',
       password: 'some spaced text',
@@ -55,9 +60,10 @@ describe('/auth/login (POST)', () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).toStrictEqual({
       access_token: expect.any(String),
-      refresh_token: expect.any(String),
     });
-    const rawRefreshToken = res.body.refresh_token;
+    const rawRefreshToken = getRefreshTokenFromCookie(
+      res.headers['set-cookie'],
+    );
     const tokenPayload =
       await jwtTokensService.verifyRefreshToken(rawRefreshToken);
     const refreshToken = await refreshTokensRepository.findOneByOrFail({
@@ -91,11 +97,16 @@ describe('/auth/login (POST)', () => {
     expect(firstLogin.statusCode).toBe(200);
     expect(secondLogin.statusCode).toBe(200);
 
-    const firstPayload = await jwtTokensService.verifyRefreshToken(
-      firstLogin.body.refresh_token,
+    const firstRawRefreshToken = getRefreshTokenFromCookie(
+      firstLogin.headers['set-cookie'],
     );
+    const secondRawRefreshToken = getRefreshTokenFromCookie(
+      secondLogin.headers['set-cookie'],
+    );
+    const firstPayload =
+      await jwtTokensService.verifyRefreshToken(firstRawRefreshToken);
     const secondPayload = await jwtTokensService.verifyRefreshToken(
-      secondLogin.body.refresh_token,
+      secondRawRefreshToken,
     );
     const firstSession = await sessionsRepository.findOneByOrFail({
       id: firstPayload.sid,
@@ -118,27 +129,18 @@ describe('/auth/login (POST)', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    const setCookieHeader: unknown = res.headers['set-cookie'];
-    expect(setCookieHeader).toBeDefined();
-    const cookies = Array.isArray(setCookieHeader)
-      ? setCookieHeader
-      : [setCookieHeader];
-    const refreshCookie = cookies.find(
-      (cookie): cookie is string =>
-        typeof cookie === 'string' && cookie.startsWith('refresh_token='),
+    const refreshCookie = getSetCookie(
+      res.headers['set-cookie'],
+      'refresh_token',
     );
-    if (!refreshCookie) {
-      throw new Error('Refresh token cookie was not set');
-    }
-    const [, ...attributes] = refreshCookie
-      .split(';')
-      .map((part) => part.trim());
-    const attributeSet = new Set(attributes);
-    expect(attributeSet).toContain('HttpOnly');
-    expect(attributeSet).toContain('Path=/auth');
-    expect(attributeSet).toContain('SameSite=Lax');
-    expect(attributeSet).toContain('Max-Age=604800');
-    expect(attributeSet).not.toContain('Secure');
+    const { nameAndValue, attributes } = parseSetCookie(refreshCookie);
+
+    expect(nameAndValue).toMatch(/^refresh_token=.+/);
+    expect(attributes).toContain('HttpOnly');
+    expect(attributes).toContain('Path=/auth');
+    expect(attributes).toContain('SameSite=Lax');
+    expect(attributes).toContain('Max-Age=604800');
+    expect(attributes).not.toContain('Secure');
   });
 
   it('returns 401 when user does not exist', async () => {

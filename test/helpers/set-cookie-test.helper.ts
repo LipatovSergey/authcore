@@ -31,6 +31,19 @@ export function parseSetCookie(cookie: string): {
   };
 }
 
+export function getRefreshTokenFromCookie(setCookieHeader: unknown): string {
+  const refreshCookie = getSetCookie(setCookieHeader, 'refresh_token');
+  const { nameAndValue } = parseSetCookie(refreshCookie);
+  const cookiePrefix = 'refresh_token=';
+  const rawRefreshToken = nameAndValue.slice(cookiePrefix.length);
+
+  if (!nameAndValue.startsWith(cookiePrefix) || rawRefreshToken.length === 0) {
+    throw new Error('Refresh token cookie value is missing');
+  }
+
+  return rawRefreshToken;
+}
+
 export function expectRefreshCookieCleared(setCookieHeader: unknown): void {
   const cookie = getSetCookie(setCookieHeader, 'refresh_token');
   const { nameAndValue, attributes } = parseSetCookie(cookie);
