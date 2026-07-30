@@ -124,7 +124,7 @@ describe('/auth/logout (POST)', () => {
     expectRefreshCookieCleared(res.headers['set-cookie']);
   });
 
-  it('returns 200 when logout is repeated with an already revoked token', async () => {
+  it('returns 401 and clears the cookie when logout is repeated with a revoked token', async () => {
     await request(httpServer)
       .post('/auth/logout')
       .set('Cookie', `refresh_token=${sessionToLogoutRawToken}`)
@@ -133,8 +133,9 @@ describe('/auth/logout (POST)', () => {
     const res = await request(httpServer)
       .post('/auth/logout')
       .set('Cookie', `refresh_token=${sessionToLogoutRawToken}`);
-    expect(res.statusCode).toBe(200);
-    expect(res.body.message).toBe('ok');
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Invalid refresh token');
+    expectRefreshCookieCleared(res.headers['set-cookie']);
   });
 
   it('clears the refresh cookie after successful logout', async () => {

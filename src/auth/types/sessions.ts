@@ -27,4 +27,5 @@ export interface RevokeOtherUserSessionsInput {
 
 export interface MarkSessionAsRefreshedInput {
   sessionId: string;
+  refreshedAt: Date;
 }

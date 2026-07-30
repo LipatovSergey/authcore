@@ -130,7 +130,7 @@ describe('/auth/refresh (POST)', () => {
   });
 
   describe('rotation and session behavior', () => {
-    it('returns 401 and revokes all user sessions and tokens on refresh token reuse', async () => {
+    it('returns 401 without revoking active sessions and tokens when a rotated token is reused', async () => {
       await request(httpServer)
         .post('/auth/login')
         .send(userCredentials)
@@ -154,19 +154,22 @@ describe('/auth/refresh (POST)', () => {
         where: { userId: userEntity.id },
       });
       expect(userSessions.length).toBeGreaterThan(0);
-      expect(userSessions.every((session) => session.revokedAt !== null)).toBe(
+      expect(userSessions.every((session) => session.revokedAt === null)).toBe(
         true,
       );
       const userRefreshTokens = await refreshTokenRepository.find({
         where: { userId: userEntity.id },
       });
       expect(userRefreshTokens.length).toBeGreaterThan(0);
-      expect(userRefreshTokens.every((token) => token.revokedAt !== null)).toBe(
-        true,
-      );
+      expect(
+        userRefreshTokens.filter((token) => token.revokedAt !== null),
+      ).toHaveLength(1);
+      expect(
+        userRefreshTokens.filter((token) => token.revokedAt === null),
+      ).toHaveLength(2);
     });
 
-    it('does not revoke another user session and refresh token when reuse is detected', async () => {
+    it('does not revoke another user session and refresh token when a rotated token is reused', async () => {
       const otherUserCredentials = {
         email: 'tester2@gmail.com',
         password: 'some spaced text',

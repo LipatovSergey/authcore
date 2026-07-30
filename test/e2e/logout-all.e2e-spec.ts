@@ -151,16 +151,19 @@ describe('/auth/logout-all (POST)', () => {
     expect(otherActiveRefreshTokenAfterLogout.revokedAt).toBeNull();
   });
 
-  it('returns 200 when logout-all is repeated with the same refresh token', async () => {
+  it('returns 401 and clears the cookie when logout-all is repeated with a revoked token', async () => {
     await request(httpServer)
       .post('/auth/logout-all')
       .set('Cookie', `refresh_token=${refreshToken1}`)
       .expect(200);
 
-    await request(httpServer)
+    const res = await request(httpServer)
       .post('/auth/logout-all')
-      .set('Cookie', `refresh_token=${refreshToken1}`)
-      .expect(200);
+      .set('Cookie', `refresh_token=${refreshToken1}`);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Invalid refresh token');
+    expectRefreshCookieCleared(res.headers['set-cookie']);
   });
 
   it('returns 401 if invalid token was passed', async () => {
