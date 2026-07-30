@@ -11,9 +11,8 @@ import {
   type SecureHasher,
 } from '../../src/auth/interfaces/secure-hasher.interface';
 import { randomUUID } from 'crypto';
-import { RefreshTokenReuseDetectedError } from '../../src/auth/tokens/refresh-token-reuse-detected.error';
 
-describe('RefreshTokensService.validateOrThrow', () => {
+describe('RefreshTokensService.authenticateTokenOrThrow', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let refreshTokensRepository: Repository<RefreshToken>;
@@ -86,7 +85,7 @@ describe('RefreshTokensService.validateOrThrow', () => {
       revokedAt: null,
     });
     const validatedToken =
-      await refreshTokensService.validateActiveForRotationOrThrow(rawToken);
+      await refreshTokensService.authenticateTokenOrThrow(rawToken);
     expect(validatedToken.id).toBe(storedToken.id);
     expect(validatedToken.userId).toBe(userId);
     expect(validatedToken.jti).toBe(storedToken.jti);
@@ -95,7 +94,7 @@ describe('RefreshTokensService.validateOrThrow', () => {
 
   it('rejects malformed/invalid JWT', async () => {
     await expect(
-      refreshTokensService.validateActiveForRotationOrThrow('invalid-jwt'),
+      refreshTokensService.authenticateTokenOrThrow('invalid-jwt'),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
@@ -107,7 +106,7 @@ describe('RefreshTokensService.validateOrThrow', () => {
       sid: sessionId,
     });
     await expect(
-      refreshTokensService.validateActiveForRotationOrThrow(rawToken),
+      refreshTokensService.authenticateTokenOrThrow(rawToken),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
@@ -144,7 +143,7 @@ describe('RefreshTokensService.validateOrThrow', () => {
       revokedAt: null,
     });
     await expect(
-      refreshTokensService.validateActiveForRotationOrThrow(rawToken),
+      refreshTokensService.authenticateTokenOrThrow(rawToken),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     const storedActiveTokens = await refreshTokensRepository.findBy({
       id: In([firstActiveToken.id, secondActiveToken.id]),
@@ -190,7 +189,7 @@ describe('RefreshTokensService.validateOrThrow', () => {
       revokedAt: null,
     });
     await expect(
-      refreshTokensService.validateActiveForRotationOrThrow(rawToken),
+      refreshTokensService.authenticateTokenOrThrow(rawToken),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     const storedActiveTokens = await refreshTokensRepository.findBy({
       id: In([firstActiveToken.id, secondActiveToken.id]),
@@ -201,10 +200,10 @@ describe('RefreshTokensService.validateOrThrow', () => {
     );
   });
 
-  it('detects reused revoked token and throw error', async () => {
+  it('rejects a revoked token without revoking active tokens', async () => {
     const { id: userId } = await createUserFixture(dataSource);
     const { id: sessionId } = await createSessionFixture(userId);
-    await createRefreshTokenFixture({
+    const firstActiveToken = await createRefreshTokenFixture({
       userId,
       jti: randomUUID(),
       sessionId,
@@ -212,7 +211,7 @@ describe('RefreshTokensService.validateOrThrow', () => {
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: null,
     });
-    await createRefreshTokenFixture({
+    const secondActiveToken = await createRefreshTokenFixture({
       userId,
       jti: randomUUID(),
       sessionId,
@@ -233,13 +232,17 @@ describe('RefreshTokensService.validateOrThrow', () => {
       expiresAt: new Date(Date.now() + ONE_DAY_MS),
       revokedAt: new Date(Date.now() - ONE_DAY_MS),
     });
-    const validation =
-      refreshTokensService.validateActiveForRotationOrThrow(rawToken);
 
-    await expect(validation).rejects.toBeInstanceOf(
-      RefreshTokenReuseDetectedError,
+    await expect(
+      refreshTokensService.authenticateTokenOrThrow(rawToken),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    const storedActiveTokens = await refreshTokensRepository.findBy({
+      id: In([firstActiveToken.id, secondActiveToken.id]),
+    });
+    expect(storedActiveTokens).toHaveLength(2);
+    expect(storedActiveTokens.every((token) => token.revokedAt === null)).toBe(
+      true,
     );
-
-    await expect(validation).rejects.toHaveProperty('userId', userId);
   });
 });

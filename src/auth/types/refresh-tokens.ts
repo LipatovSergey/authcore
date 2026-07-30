@@ -9,6 +9,7 @@ export interface CreateRefreshTokenInput {
 export interface RotateRefreshTokenInput {
   oldTokenId: string;
   newTokenInput: CreateRefreshTokenInput;
+  rotatedAt: Date;
 }
 
 export interface RevokeRefreshTokensBySessionInput {

@@ -92,10 +92,10 @@ export class SessionsService {
     input: MarkSessionAsRefreshedInput,
     manager: EntityManager,
   ) {
-    const { sessionId } = input;
+    const { sessionId, refreshedAt } = input;
     const repo = manager.getRepository(Session);
     const { affected } = await repo.update(sessionId, {
-      lastRefreshedAt: new Date(),
+      lastRefreshedAt: refreshedAt,
     });
     if (affected === 0) {
       throw new Error('Failed to mark session as refreshed');

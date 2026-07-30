@@ -27,7 +27,6 @@ import {
 } from '../interfaces/secure-hasher.interface';
 import type { RefreshTokenPayload } from '../types/jwt-tokens';
 import { JwtTokensService } from './jwt-tokens.service';
-import { RefreshTokenReuseDetectedError } from './refresh-token-reuse-detected.error';
 
 @Injectable()
 export class RefreshTokensService {
@@ -99,11 +98,13 @@ export class RefreshTokensService {
       this.logger.warn('Refresh token hash verification failed');
       throw new UnauthorizedException('Invalid refresh token');
     }
+    if (tokenInstance.revokedAt !== null) {
+      this.logger.warn('Revoked refresh token presented');
+      throw new UnauthorizedException('Invalid refresh token');
+    }
   }
 
-  private async authenticateTokenOrThrow(
-    rawToken: string,
-  ): Promise<RefreshToken> {
+  async authenticateTokenOrThrow(rawToken: string): Promise<RefreshToken> {
     const tokenPayload = await this.verifyPayloadOrThrow(rawToken);
     const tokenInstance = await this.loadTokenRecordOrThrow(tokenPayload.jti);
     await this.validateTokenRecordOrThrow({
@@ -129,25 +130,6 @@ export class RefreshTokensService {
     });
 
     await repo.save(token);
-  }
-
-  async verifyForRevocationOrThrow(rawToken: string): Promise<RefreshToken> {
-    return this.authenticateTokenOrThrow(rawToken);
-  }
-
-  async validateActiveForRotationOrThrow(
-    rawToken: string,
-  ): Promise<RefreshToken> {
-    const tokenInstance = await this.authenticateTokenOrThrow(rawToken);
-
-    // Known revoked token with a matching hash means possible refresh token reuse
-    if (tokenInstance.revokedAt !== null) {
-      this.logger.warn(
-        `Refresh token reuse detected: userId=${tokenInstance.userId}`,
-      );
-      throw new RefreshTokenReuseDetectedError(tokenInstance.userId);
-    }
-    return tokenInstance;
   }
 
   async findByJti(jti: string): Promise<RefreshToken | null> {
@@ -192,16 +174,15 @@ export class RefreshTokensService {
     input: RotateRefreshTokenInput,
     manager: EntityManager,
   ): Promise<void> {
-    const now = new Date();
     const txRepo = manager.getRepository(RefreshToken);
     const { affected } = await txRepo.update(
       {
         id: input.oldTokenId,
         revokedAt: IsNull(),
-        expiresAt: MoreThan(now),
+        expiresAt: MoreThan(input.rotatedAt),
       },
       {
-        revokedAt: now,
+        revokedAt: input.rotatedAt,
       },
     );
 

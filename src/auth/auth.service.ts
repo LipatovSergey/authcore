@@ -32,8 +32,6 @@ import {
 } from './dto/reset-password.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SessionsService } from './sessions/sessions.service';
-import { RefreshToken } from './entities/refresh-token.entity';
-import { RefreshTokenReuseDetectedError } from './tokens/refresh-token-reuse-detected.error';
 import { GetSessionsResponseDto } from './dto/get-sessions.dto';
 import { RevokeSessionResponseDto } from './dto/revoke-session.dto';
 import { RevokeOtherSessionsResponseDto } from './dto/revoke-other-sessions.dto';
@@ -400,35 +398,8 @@ export class AuthService implements OnModuleInit {
   }
 
   async refresh(rawRefreshToken: string): Promise<AuthTokenPair> {
-    let validatedRefreshToken: RefreshToken;
-    try {
-      validatedRefreshToken =
-        await this.refreshTokensService.validateActiveForRotationOrThrow(
-          rawRefreshToken,
-        );
-    } catch (error) {
-      if (!(error instanceof RefreshTokenReuseDetectedError)) {
-        throw error;
-      }
-      await this.dataSource.transaction(async (manager) => {
-        const revokedAt = new Date();
-        await this.sessionService.revokeAllByUserId(
-          {
-            userId: error.userId,
-            revokedAt,
-          },
-          manager,
-        );
-        await this.refreshTokensService.revokeAllByUserId(
-          {
-            userId: error.userId,
-            revokedAt,
-          },
-          manager,
-        );
-      });
-      throw new UnauthorizedException('Invalid refresh token');
-    }
+    const validatedRefreshToken =
+      await this.refreshTokensService.authenticateTokenOrThrow(rawRefreshToken);
 
     const user = await this.usersService.findById(validatedRefreshToken.userId);
     if (!user) {
@@ -444,6 +415,8 @@ export class AuthService implements OnModuleInit {
     });
 
     const sessionId = await this.dataSource.transaction(async (manager) => {
+      const rotationTimeStamp = new Date();
+
       const activeSession =
         await this.sessionService.validateActiveUserSessionOrThrow(
           {
@@ -461,6 +434,7 @@ export class AuthService implements OnModuleInit {
             userId: user.id,
             sessionId: activeSession.id,
           },
+          rotatedAt: rotationTimeStamp,
         },
         manager,
       );
@@ -468,6 +442,7 @@ export class AuthService implements OnModuleInit {
       await this.sessionService.markSessionAsRefreshed(
         {
           sessionId: activeSession.id,
+          refreshedAt: rotationTimeStamp,
         },
         manager,
       );
@@ -490,7 +465,7 @@ export class AuthService implements OnModuleInit {
 
   async logout(refreshToken: string): Promise<LogoutResponseDto> {
     const dbToken =
-      await this.refreshTokensService.verifyForRevocationOrThrow(refreshToken);
+      await this.refreshTokensService.authenticateTokenOrThrow(refreshToken);
 
     const revokedAt = new Date();
 
@@ -520,7 +495,7 @@ export class AuthService implements OnModuleInit {
 
   async logoutAll(refreshToken: string): Promise<LogoutAllResponseDto> {
     const dbToken =
-      await this.refreshTokensService.verifyForRevocationOrThrow(refreshToken);
+      await this.refreshTokensService.authenticateTokenOrThrow(refreshToken);
 
     const revokedAt = new Date();
 
