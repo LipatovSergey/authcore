@@ -62,4 +62,7 @@ export default () => ({
   refreshTokenRetentionMs: Number(process.env.REFRESH_TOKEN_RETENTION_MS),
 
   refreshCookieSecure: process.env.REFRESH_COOKIE_SECURE === 'true',
+  csrf: {
+    signingSecret: process.env.CSRF_SECRET,
+  },
 });

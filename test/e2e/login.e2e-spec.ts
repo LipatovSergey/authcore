@@ -11,6 +11,7 @@ import { Session } from '../../src/auth/sessions/session.entity';
 import { RefreshToken } from '../../src/auth/entities/refresh-token.entity';
 import { JwtTokensService } from '../../src/auth/tokens/jwt-tokens.service';
 import {
+  getCsrfTokenFromCookie,
   getRefreshTokenFromCookie,
   getSetCookie,
   parseSetCookie,
@@ -103,6 +104,12 @@ describe('/auth/login (POST)', () => {
     const secondRawRefreshToken = getRefreshTokenFromCookie(
       secondLogin.headers['set-cookie'],
     );
+    const firstRawCsrfToken = getCsrfTokenFromCookie(
+      firstLogin.headers['set-cookie'],
+    );
+    const secondRawCsrfToken = getCsrfTokenFromCookie(
+      secondLogin.headers['set-cookie'],
+    );
     const firstPayload =
       await jwtTokensService.verifyRefreshToken(firstRawRefreshToken);
     const secondPayload = await jwtTokensService.verifyRefreshToken(
@@ -118,6 +125,7 @@ describe('/auth/login (POST)', () => {
     expect(firstPayload.sub).toBe(secondPayload.sub);
     expect(firstPayload.sid).not.toBe(secondPayload.sid);
     expect(firstPayload.jti).not.toBe(secondPayload.jti);
+    expect(firstRawCsrfToken).not.toBe(secondRawCsrfToken);
     expect(firstSession.revokedAt).toBeNull();
     expect(secondSession.revokedAt).toBeNull();
   });
@@ -138,6 +146,26 @@ describe('/auth/login (POST)', () => {
     expect(nameAndValue).toMatch(/^refresh_token=.+/);
     expect(attributes).toContain('HttpOnly');
     expect(attributes).toContain('Path=/auth');
+    expect(attributes).toContain('SameSite=Lax');
+    expect(attributes).toContain('Max-Age=604800');
+    expect(attributes).not.toContain('Secure');
+  });
+
+  it('sets a frontend-readable CSRF cookie on successful login', async () => {
+    const res = await request(httpServer).post('/auth/login').send({
+      email: 'tester@gmail.com',
+      password: 'some spaced text',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const csrfCookie = getSetCookie(res.headers['set-cookie'], 'csrf_token');
+    const { nameAndValue, attributes } = parseSetCookie(csrfCookie);
+    const rawCsrfToken = getCsrfTokenFromCookie(res.headers['set-cookie']);
+
+    expect(nameAndValue).toBe(`csrf_token=${rawCsrfToken}`);
+    expect(rawCsrfToken).toMatch(/^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    expect(attributes).not.toContain('HttpOnly');
+    expect(attributes).toContain('Path=/');
     expect(attributes).toContain('SameSite=Lax');
     expect(attributes).toContain('Max-Age=604800');
     expect(attributes).not.toContain('Secure');

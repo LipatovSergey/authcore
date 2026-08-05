@@ -22,6 +22,8 @@ import { RefreshTokensCleanupService } from './cleanup/refresh-tokens-cleanup.se
 import { Session } from './sessions/session.entity';
 import { SessionsService } from './sessions/sessions.service';
 import { RefreshCookieService } from './cookies/refresh-cookie.service';
+import { CsrfTokenService } from './csrf/csrf-token.service';
+import { CsrfCookieService } from './cookies/csrf-cookie.service';
 
 @Module({
   imports: [
@@ -57,6 +59,8 @@ import { RefreshCookieService } from './cookies/refresh-cookie.service';
     UnverifiedUsersCleanupService,
     SessionsService,
     RefreshCookieService,
+    CsrfTokenService,
+    CsrfCookieService,
     { provide: SECURE_HASHER, useClass: Argon2PasswordHasher },
   ],
 })
