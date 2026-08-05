@@ -47,6 +47,8 @@ import { ForgotPasswordRequestDto } from './dto/forgot-password.dto';
 import { ResetPasswordRequestDto } from './dto/reset-password.dto';
 import { SessionIdParamDto } from './dto/revoke-session.dto';
 import { RefreshCookieService } from './cookies/refresh-cookie.service';
+import { IssuedAuthTokenSet } from './types/auth-tokens';
+import { CsrfCookieService } from './cookies/csrf-cookie.service';
 
 @ApiAuthController()
 @Controller('auth')
@@ -55,6 +57,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly config: ConfigService,
     private readonly refreshCookieService: RefreshCookieService,
+    private readonly csrfCookieService: CsrfCookieService,
   ) {}
 
   @ApiRegisterEndpoint()
@@ -81,12 +84,15 @@ export class AuthController {
     const rawUserAgent = request.headers['user-agent'];
     const userAgent = typeof rawUserAgent === 'string' ? rawUserAgent : null;
     const ipAddress = request.ip ?? null;
-    const tokenPair = await this.authService.login({
-      credentials: loginRequestDto,
-      metadata: { userAgent, ipAddress },
-    });
-    this.refreshCookieService.set(response, tokenPair.rawRefreshToken);
-    return { access_token: tokenPair.rawAccessToken };
+    const issuedAuthTokenSet: IssuedAuthTokenSet = await this.authService.login(
+      {
+        credentials: loginRequestDto,
+        metadata: { userAgent, ipAddress },
+      },
+    );
+    this.refreshCookieService.set(response, issuedAuthTokenSet.rawRefreshToken);
+    this.csrfCookieService.set(response, issuedAuthTokenSet.rawCsrfToken);
+    return { access_token: issuedAuthTokenSet.rawAccessToken };
   }
 
   // Refresh token
@@ -105,9 +111,11 @@ export class AuthController {
       throw new UnauthorizedException('Refresh credentials are required');
     }
 
-    const tokenPair = await this.authService.refresh(refreshToken);
-    this.refreshCookieService.set(response, tokenPair.rawRefreshToken);
-    return { access_token: tokenPair.rawAccessToken };
+    const issuedAuthTokenSet: IssuedAuthTokenSet =
+      await this.authService.refresh(refreshToken);
+    this.refreshCookieService.set(response, issuedAuthTokenSet.rawRefreshToken);
+    this.csrfCookieService.set(response, issuedAuthTokenSet.rawCsrfToken);
+    return { access_token: issuedAuthTokenSet.rawAccessToken };
   }
 
   // Logout current session
@@ -125,10 +133,12 @@ export class AuthController {
       }
       const result = await this.authService.logout(refreshToken);
       this.refreshCookieService.clear(response);
+      this.csrfCookieService.clear(response);
       return result;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         this.refreshCookieService.clear(response);
+        this.csrfCookieService.clear(response);
       }
       throw error;
     }
@@ -149,10 +159,12 @@ export class AuthController {
       }
       const result = await this.authService.logoutAll(refreshToken);
       this.refreshCookieService.clear(response);
+      this.csrfCookieService.clear(response);
       return result;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         this.refreshCookieService.clear(response);
+        this.csrfCookieService.clear(response);
       }
       throw error;
     }

@@ -94,6 +94,7 @@ const DOTENV_CONFIG_PATH = process.env.DOTENV_CONFIG_PATH ?? '.env.development';
         NODE_ENV: Joi.string().optional(),
 
         REFRESH_COOKIE_SECURE: Joi.boolean().required(),
+        CSRF_SECRET: Joi.string().min(32).required(),
       }),
 
       load: [configuration],

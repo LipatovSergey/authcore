@@ -13,6 +13,7 @@ import { Session } from '../../src/auth/sessions/session.entity';
 import { User } from '../../src/users/entities/user.entity';
 import { AuthService } from '../../src/auth/auth.service';
 import {
+  expectCsrfCookieCleared,
   expectRefreshCookieCleared,
   getRefreshTokenFromCookie,
 } from '../helpers/set-cookie-test.helper';
@@ -164,6 +165,7 @@ describe('/auth/logout-all (POST)', () => {
     expect(res.statusCode).toBe(401);
     expect(res.body.message).toBe('Invalid refresh token');
     expectRefreshCookieCleared(res.headers['set-cookie']);
+    expectCsrfCookieCleared(res.headers['set-cookie']);
   });
 
   it('returns 401 if invalid token was passed', async () => {
@@ -173,13 +175,15 @@ describe('/auth/logout-all (POST)', () => {
     expect(res.statusCode).toBe(401);
     expect(res.body.message).toBe('Invalid refresh token');
     expectRefreshCookieCleared(res.headers['set-cookie']);
+    expectCsrfCookieCleared(res.headers['set-cookie']);
   });
 
-  it('clears the refresh cookie after successful logout-all', async () => {
+  it('clears the refresh and CSRF cookies after successful logout-all', async () => {
     const res = await agent.post('/auth/logout-all');
 
     expect(res.statusCode).toBe(200);
     expectRefreshCookieCleared(res.headers['set-cookie']);
+    expectCsrfCookieCleared(res.headers['set-cookie']);
   });
 
   it('does not authenticate with a refresh token from the request body', async () => {
@@ -190,6 +194,7 @@ describe('/auth/logout-all (POST)', () => {
     expect(res.statusCode).toBe(401);
     expect(res.body.message).toBe('Refresh credentials are required');
     expectRefreshCookieCleared(res.headers['set-cookie']);
+    expectCsrfCookieCleared(res.headers['set-cookie']);
   });
 
   it('returns 401 and clears the cookie when credentials are missing', async () => {
@@ -198,6 +203,7 @@ describe('/auth/logout-all (POST)', () => {
     expect(res.statusCode).toBe(401);
     expect(res.body.message).toBe('Refresh credentials are required');
     expectRefreshCookieCleared(res.headers['set-cookie']);
+    expectCsrfCookieCleared(res.headers['set-cookie']);
   });
 
   it('does not clear the refresh cookie after an internal error', async () => {

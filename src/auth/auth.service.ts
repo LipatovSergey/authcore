@@ -36,7 +36,8 @@ import { GetSessionsResponseDto } from './dto/get-sessions.dto';
 import { RevokeSessionResponseDto } from './dto/revoke-session.dto';
 import { RevokeOtherSessionsResponseDto } from './dto/revoke-other-sessions.dto';
 import { userAgentParser } from './sessions/parse-user-agent.util';
-import { AuthTokenPair } from './types/auth-tokens';
+import { IssuedAuthTokenSet } from './types/auth-tokens';
+import { CsrfTokenService } from './csrf/csrf-token.service';
 export const VERIFY_EMAIL_OUTCOME = {
   VERIFIED: 'verified',
   ALREADY_VERIFIED: 'already_verified',
@@ -59,6 +60,7 @@ export class AuthService implements OnModuleInit {
     private readonly config: ConfigService,
     private readonly notificationService: NotificationsService,
     private readonly sessionService: SessionsService,
+    private readonly csrfTokenService: CsrfTokenService,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -316,7 +318,7 @@ export class AuthService implements OnModuleInit {
       userAgent: string | null;
       ipAddress: string | null;
     };
-  }): Promise<AuthTokenPair> {
+  }): Promise<IssuedAuthTokenSet> {
     const { credentials, metadata } = input;
     const user = await this.usersService.findByEmail(credentials.email);
     if (!user) {
@@ -390,14 +392,17 @@ export class AuthService implements OnModuleInit {
       sessionId,
     });
 
+    const rawCsrfToken = this.csrfTokenService.issueToken(sessionId);
+
     this.logger.log(`User logged in: email=${user.email} userId=${user.id}`);
     return {
       rawAccessToken,
       rawRefreshToken,
+      rawCsrfToken,
     };
   }
 
-  async refresh(rawRefreshToken: string): Promise<AuthTokenPair> {
+  async refresh(rawRefreshToken: string): Promise<IssuedAuthTokenSet> {
     const validatedRefreshToken =
       await this.refreshTokensService.authenticateTokenOrThrow(rawRefreshToken);
 
@@ -456,10 +461,12 @@ export class AuthService implements OnModuleInit {
       sessionId,
     });
 
+    const rawCsrfToken = this.csrfTokenService.issueToken(sessionId);
     this.logger.log(`Token refreshed: userId=${user.id}`);
     return {
       rawAccessToken,
       rawRefreshToken: issuedRefreshToken.rawToken,
+      rawCsrfToken,
     };
   }
 

@@ -11,7 +11,10 @@ import { Session } from '../../src/auth/sessions/session.entity';
 import { RefreshToken } from '../../src/auth/entities/refresh-token.entity';
 import { User } from '../../src/users/entities/user.entity';
 import { JwtTokensService } from '../../src/auth/tokens/jwt-tokens.service';
-import { getRefreshTokenFromCookie } from '../helpers/set-cookie-test.helper';
+import {
+  getCsrfTokenFromCookie,
+  getRefreshTokenFromCookie,
+} from '../helpers/set-cookie-test.helper';
 
 describe('/auth/refresh (POST)', () => {
   let app: INestApplication<App>;
@@ -19,6 +22,7 @@ describe('/auth/refresh (POST)', () => {
   let httpServer: App;
   let notificationsServiceMock: NotificationsServiceMock;
   let refreshToken: string;
+  let csrfToken: string;
   let agent: ReturnType<typeof request.agent>;
   let jwtTokensService: JwtTokensService;
   let sessionsRepository: Repository<Session>;
@@ -62,6 +66,7 @@ describe('/auth/refresh (POST)', () => {
     refreshToken = getRefreshTokenFromCookie(
       loginResponse.headers['set-cookie'],
     );
+    csrfToken = getCsrfTokenFromCookie(loginResponse.headers['set-cookie']);
   });
 
   describe('cookie-only transport', () => {
@@ -74,13 +79,19 @@ describe('/auth/refresh (POST)', () => {
       });
     });
 
-    it('replaces the cookie after refresh token rotation', async () => {
+    it('replaces the refresh and CSRF cookies after token rotation', async () => {
       const firstRefresh = await agent.post('/auth/refresh').expect(200);
       const secondRefresh = await agent.post('/auth/refresh').expect(200);
       const firstRotatedToken = getRefreshTokenFromCookie(
         firstRefresh.headers['set-cookie'],
       );
       const secondRotatedToken = getRefreshTokenFromCookie(
+        secondRefresh.headers['set-cookie'],
+      );
+      const firstRotatedCsrfToken = getCsrfTokenFromCookie(
+        firstRefresh.headers['set-cookie'],
+      );
+      const secondRotatedCsrfToken = getCsrfTokenFromCookie(
         secondRefresh.headers['set-cookie'],
       );
 
@@ -92,6 +103,8 @@ describe('/auth/refresh (POST)', () => {
       });
       expect(firstRotatedToken).not.toBe(refreshToken);
       expect(secondRotatedToken).not.toBe(firstRotatedToken);
+      expect(firstRotatedCsrfToken).not.toBe(csrfToken);
+      expect(secondRotatedCsrfToken).not.toBe(firstRotatedCsrfToken);
     });
 
     it('does not authenticate with a refresh token from the request body', async () => {
